@@ -668,7 +668,7 @@ struct ILogSystem {
 		// Never returns normally, but throws an error if the subsystem stops working
 
 	//Future<Void> push( UID bundle, int64_t seq, VectorRef<TaggedMessageRef> messages );
-	virtual Future<Version> push( Version prevVersion, Version version, Version knownCommittedVersion, Version minKnownCommittedVersion, struct LogPushData& data, Optional<UID> debugID = Optional<UID>() ) = 0;
+	virtual Future<Version> push( Version prevVersion, Version version, Version knownCommittedVersion, Version minKnownCommittedVersion, struct LogPushData& data, SpanID spanContext, Optional<UID> debugID = Optional<UID>() ) = 0;
 		// Waits for the version number of the bundle (in this epoch) to be prevVersion (i.e. for all pushes ordered earlier)
 		// Puts the given messages into the bundle, each with the given tags, and with message versions (version, 0) - (version, N)
 		// Changes the version number of the bundle to be version (unblocking the next push)
@@ -821,7 +821,7 @@ struct CompareFirst {
 struct LogPushData : NonCopyable {
 	// Log subsequences have to start at 1 (the MergedPeekCursor relies on this to make sure we never have !hasMessage() in the middle of data for a version
 
-	explicit LogPushData(Reference<ILogSystem> logSystem) : logSystem(logSystem), subsequence(1) {
+	explicit LogPushData(Reference<ILogSystem> logSystem) : logSystem(logSystem), subsequence(1), wroteTransactionInfo(false) {
 		for(auto& log : logSystem->getLogSystemConfig().tLogs) {
 			if(log.isLocal) {
 				for(int i = 0; i < log.tLogs.size(); i++) {
@@ -849,7 +849,15 @@ struct LogPushData : NonCopyable {
 		next_message_tags.insert(next_message_tags.end(), tags.begin(), tags.end());
 	}
 
-	void addMessage( StringRef rawMessageWithoutLength, bool usePreviousLocations ) {
+	// Add transaction info to be written by the first mutation in the transaction
+	void addTransactionInfo(SpanID context, uint16_t transactions) {
+		// TODO: Add check for wroteTransactionInfo == true here?
+		spanContext = context;
+		numTransactions = transactions;
+		wroteTransactionInfo = false;
+	}
+
+	void writeMessage( StringRef rawMessageWithoutLength, bool usePreviousLocations ) {
 		if( !usePreviousLocations ) {
 			prev_tags.clear();
 			if(logSystem->hasRemoteLogs()) {
@@ -863,17 +871,24 @@ struct LogPushData : NonCopyable {
 			next_message_tags.clear();
 		}
 		uint32_t subseq = this->subsequence++;
-		uint32_t msgsize = rawMessageWithoutLength.size() + sizeof(subseq) + sizeof(uint16_t) + sizeof(Tag)*prev_tags.size();
+		uint32_t msgsize = rawMessageWithoutLength.size() + sizeof(subseq) + sizeof(uint16_t) + sizeof(Tag)*prev_tags.size() + sizeof(SpanID);
 		for(int loc : msg_locations) {
+			if (!wroteTransactionInfo) {
+				messagesWriter[loc] << spanContext << numTransactions;
+			}
 			messagesWriter[loc] << msgsize << subseq << uint16_t(prev_tags.size());
 			for(auto& tag : prev_tags)
 				messagesWriter[loc] << tag;
 			messagesWriter[loc].serializeBytes(rawMessageWithoutLength);
 		}
+
+		spanContext = SpanID();
+		numTransactions = 1;
+		wroteTransactionInfo = true;
 	}
 
 	template <class T>
-	void addTypedMessage(T const& item, bool allLocations = false) {
+	void writeTypedMessage(T const& item, bool allLocations = false) {
 		prev_tags.clear();
 		if(logSystem->hasRemoteLogs()) {
 			prev_tags.push_back( logSystem->getRandomRouterTag() );
@@ -892,6 +907,12 @@ struct LogPushData : NonCopyable {
 			if (first) {
 				BinaryWriter& wr = messagesWriter[loc];
 				firstOffset = wr.getLength();
+				if (!wroteTransactionInfo) {
+					wr << spanContext << numTransactions;
+					spanContext = SpanID();
+					numTransactions = 1;
+					wroteTransactionInfo = true;
+				}
 				wr << uint32_t(0) << subseq << uint16_t(prev_tags.size());
 				for(auto& tag : prev_tags)
 					wr << tag;
@@ -920,6 +941,9 @@ private:
 	std::vector<BinaryWriter> messagesWriter;
 	std::vector<int> msg_locations;
 	uint32_t subsequence;
+	SpanID spanContext;
+	uint32_t numTransactions;
+	bool wroteTransactionInfo;
 };
 
 #endif
