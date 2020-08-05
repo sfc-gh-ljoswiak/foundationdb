@@ -786,7 +786,7 @@ ACTOR Future<Void> addBackupMutations(ProxyCommitData* self, std::map<Key, Mutat
 				
 			auto& tags = self->tagsForKey(backupMutation.param1);
 			toCommit->addTags(tags);
-			toCommit->addTypedMessage(backupMutation);
+			toCommit->writeTypedMessage(backupMutation);
 
 //			if (DEBUG_MUTATION("BackupProxyCommit", commitVersion, backupMutation)) {
 //				TraceEvent("BackupProxyCommitTo", self->dbgid).detail("To", describe(tags)).detail("BackupMutation", backupMutation.toString())
@@ -1081,6 +1081,9 @@ ACTOR Future<Void> commitBatch(
 		if (committed[transactionNum] == ConflictBatch::TransactionCommitted && (!locked || trs[transactionNum].isLockAware())) {
 			state int mutationNum = 0;
 			state VectorRef<MutationRef>* pMutations = &trs[transactionNum].transaction.mutations;
+
+			toCommit.addTransactionInfo(trs[transactionNum].spanContext, pMutations->size());
+
 			for (; mutationNum < pMutations->size(); mutationNum++) {
 				if(yieldBytes > SERVER_KNOBS->DESIRED_TOTAL_BYTES) {
 					yieldBytes = 0;
@@ -1117,7 +1120,7 @@ ACTOR Future<Void> commitBatch(
 					if(self->cacheInfo[m.param1]) {
 						toCommit.addTag(cacheTag);
 					}
-					toCommit.addTypedMessage(m);
+					toCommit.writeTypedMessage(m);
 				}
 				else if (m.type == MutationRef::ClearRange) {
 					KeyRangeRef clearRange(KeyRangeRef(m.param1, m.param2));
@@ -1145,7 +1148,7 @@ ACTOR Future<Void> commitBatch(
 					if(self->needsCacheTag(clearRange)) {
 						toCommit.addTag(cacheTag);
 					}
-					toCommit.addTypedMessage(m);
+					toCommit.writeTypedMessage(m);
 				} else
 					UNREACHABLE();
 
@@ -1233,11 +1236,13 @@ ACTOR Future<Void> commitBatch(
 
 	// txnState (transaction subsystem state) tag: message extracted from log adapter
 	bool firstMessage = true;
+	// TODO: Revisit this, not sure what Span to pass yet
+	toCommit.addTransactionInfo(SpanID(), msg.messages.size());
 	for(auto m : msg.messages) {
 		if(firstMessage) {
 			toCommit.addTxsTag();
 		}
-		toCommit.addMessage(StringRef(m.begin(), m.size()), !firstMessage);
+		toCommit.writeMessage(StringRef(m.begin(), m.size()), !firstMessage);
 		firstMessage = false;
 	}
 
@@ -1252,7 +1257,7 @@ ACTOR Future<Void> commitBatch(
 
 	state double commitStartTime = now();
 	self->lastStartCommit = commitStartTime;
-	Future<Version> loggingComplete = self->logSystem->push( prevVersion, commitVersion, self->committedVersion.get(), self->minKnownCommittedVersion, toCommit, debugID );
+	Future<Version> loggingComplete = self->logSystem->push( prevVersion, commitVersion, self->committedVersion.get(), self->minKnownCommittedVersion, toCommit, span.context, debugID );
 
 	if (!forceRecovery) {
 		ASSERT(self->latestLocalCommitBatchLogging.get() == localBatchNumber-1);
