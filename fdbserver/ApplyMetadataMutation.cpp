@@ -102,6 +102,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& 
 					TraceEvent(SevDebug, "SendingPrivateMutation", dbgid).detail("Original", m.toString()).detail("Privatized", privatized.toString()).detail("Server", serverKeysDecodeServer(m.param1))
 						.detail("TagKey", serverTagKeyFor( serverKeysDecodeServer(m.param1) )).detail("Tag", decodeServerTagValue( txnStateStore->readValue( serverTagKeyFor( serverKeysDecodeServer(m.param1) ) ).get().get() ).toString());
 
+					toCommit->addTransactionInfo(spanContext, 1);
 					toCommit->addTag( decodeServerTagValue( txnStateStore->readValue( serverTagKeyFor( serverKeysDecodeServer(m.param1) ) ).get().get() ) );
 					toCommit->writeTypedMessage(privatized);
 				}
@@ -114,6 +115,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& 
 					privatized.param1 = m.param1.withPrefix(systemKeys.begin, arena);
 					TraceEvent("ServerTag", dbgid).detail("Server", id).detail("Tag", tag.toString());
 
+					toCommit->addTransactionInfo(spanContext, 2);
 					toCommit->addTag(tag);
 					toCommit->writeTypedMessage(LogProtocolMessage());
 					toCommit->addTag(tag);
@@ -168,6 +170,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& 
 					MutationRef privatized = m;
 					privatized.param1 = m.param1.withPrefix(systemKeys.begin, arena);
 					//TraceEvent(SevDebug, "SendingPrivateMutation", dbgid).detail("Original", m.toString()).detail("Privatized", privatized.toString());
+					toCommit->addTransactionInfo(spanContext, 1);
 					toCommit->addTag( cacheTag );
 					toCommit->writeTypedMessage(privatized);
 				}
@@ -285,12 +288,14 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& 
 					allTags.insert(cacheTag);
 
 					if (m.param1 == lastEpochEndKey) {
+						toCommit->addTransactionInfo(spanContext, 1);
 						toCommit->addTags(allTags);
 						toCommit->writeTypedMessage(LogProtocolMessage());
 					}
 
 					MutationRef privatized = m;
 					privatized.param1 = m.param1.withPrefix(systemKeys.begin, arena);
+					toCommit->addTransactionInfo(spanContext, 1);
 					toCommit->addTags(allTags);
 					toCommit->writeTypedMessage(privatized);
 				}
@@ -347,6 +352,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& 
 							privatized.param1 = kv.key.withPrefix(systemKeys.begin, arena);
 							privatized.param2 = keyAfter(kv.key, arena).withPrefix(systemKeys.begin, arena);
 
+							toCommit->addTransactionInfo(spanContext, 1);
 							toCommit->addTag(decodeServerTagValue(kv.value));
 							toCommit->writeTypedMessage(privatized);
 						}
@@ -538,6 +544,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& 
 			}
 
 			// Add the tags to both begin and end mutations
+			toCommit->addTransactionInfo(spanContext, 2);
 			toCommit->addTags(allTags);
 			toCommit->writeTypedMessage(mutationBegin);
 			toCommit->addTags(allTags);

@@ -513,6 +513,8 @@ ACTOR Future<Void> addBackupMutations(ProxyCommitData* self, std::map<Key, Mutat
 	state int yieldBytes = 0;
 	state BinaryWriter valueWriter(Unversioned());
 
+	// TODO: Add transaction info here
+
 	// Serialize the log range mutations within the map
 	for (; logRangeMutation != logRangeMutations->end(); ++logRangeMutation)
 	{
@@ -890,7 +892,7 @@ void applyMetadataEffect(CommitBatchContext* self) {
 			for (int resolver = 0; resolver < self->resolution.size(); resolver++)
 				committed = committed && self->resolution[resolver].stateMutations[versionIndex][transactionIndex].committed;
 			if (committed) {
-				applyMetadataMutations(*self->pProxyCommitData, self->arena, self->pProxyCommitData->logSystem,
+				applyMetadataMutations(SpanID(), *self->pProxyCommitData, self->arena, self->pProxyCommitData->logSystem,
 				                       self->resolution[0].stateMutations[versionIndex][transactionIndex].mutations,
 				                       /* pToCommit= */ nullptr, self->forceRecovery,
 				                       /* popVersion= */ 0, /* initialCommit */ false);
@@ -973,7 +975,7 @@ ACTOR Future<Void> applyMetadataToCommittedTransactions(CommitBatchContext* self
 	for (t = 0; t < trs.size() && !self->forceRecovery; t++) {
 		if (self->committed[t] == ConflictBatch::TransactionCommitted && (!self->locked || trs[t].isLockAware())) {
 			self->commitCount++;
-			applyMetadataMutations(*pProxyCommitData, self->arena, pProxyCommitData->logSystem,
+			applyMetadataMutations(trs[t].spanContext, *pProxyCommitData, self->arena, pProxyCommitData->logSystem,
 			                       trs[t].transaction.mutations, &self->toCommit, self->forceRecovery,
 			                       self->commitVersion + 1, /* initialCommit= */ false);
 		}
@@ -2289,7 +2291,7 @@ ACTOR Future<Void> masterProxyServerCore(
 
 						Arena arena;
 						bool confChanges;
-						applyMetadataMutations(commitData, arena, Reference<ILogSystem>(), mutations,
+						applyMetadataMutations(SpanID(), commitData, arena, Reference<ILogSystem>(), mutations,
 						                       /* pToCommit= */ nullptr, confChanges,
 						                       /* popVersion= */ 0, /* initialCommit= */ true);
 					}

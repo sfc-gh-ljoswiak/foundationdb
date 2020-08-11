@@ -1333,9 +1333,9 @@ void commitMessages( TLogData *self, Reference<LogData> logData, Version version
 	self->tempTagMessages.clear();
 	while(!rd.empty()) {
 		SpanID spanContext;
-		uint32_t numTransactions = 0;
+		uint16_t numTransactions = 0;
 		TagsAndMessage::loadTransactionInfoFromArena(&rd, &spanContext, &numTransactions);
-		for (uint32_t i = 0; i < numTransactions; ++i) {
+		for (uint16_t i = 0; i < numTransactions; ++i) {
 			TagsAndMessage tagsAndMsg(spanContext);
 			tagsAndMsg.loadFromArena(&rd, nullptr);
 			self->tempTagMessages.push_back(std::move(tagsAndMsg));
@@ -1400,9 +1400,9 @@ ACTOR Future<std::vector<StringRef>> parseMessagesForTag( StringRef commitBlob, 
 	state std::vector<StringRef> relevantMessages;
 	state BinaryReader rd(commitBlob, AssumeVersion(currentProtocolVersion));
 	while (!rd.empty()) {
-		state uint32_t numTransactions = 0;
+		state uint16_t numTransactions = 0;
 		TagsAndMessage::loadTransactionInfoFromArena(&rd, nullptr, &numTransactions);
-		state uint32_t i;
+		state uint16_t i;
 		for (i = 0; i < numTransactions; ++i) {
 			TagsAndMessage tagsAndMessage;
 			tagsAndMessage.loadFromArena(&rd, nullptr);
