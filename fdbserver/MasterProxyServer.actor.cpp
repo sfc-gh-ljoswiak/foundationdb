@@ -1089,7 +1089,7 @@ ACTOR Future<Void> assignMutationsToStorageServers(CommitBatchContext* self) {
 				if(pProxyCommitData->needsCacheTag(clearRange)) {
 					self->toCommit.addTag(cacheTag);
 				}
-				self->toCommit.addTypedMessage(m);
+				self->toCommit.writeTypedMessage(m);
 			} else {
 				UNREACHABLE();
 			}
