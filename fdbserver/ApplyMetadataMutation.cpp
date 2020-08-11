@@ -45,9 +45,15 @@ Reference<StorageInfo> getStorageInfo(UID id, std::map<UID, Reference<StorageInf
 // It is incredibly important that any modifications to txnStateStore are done in such a way that
 // the same operations will be done on all proxies at the same time. Otherwise, the data stored in
 // txnStateStore will become corrupted.
-void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &arena, VectorRef<MutationRef> const& mutations, IKeyValueStore* txnStateStore, LogPushData* toCommit, bool *confChange, Reference<ILogSystem> logSystem, Version popVersion,
-	KeyRangeMap<std::set<Key> >* vecBackupKeys, KeyRangeMap<ServerCacheInfo>* keyInfo, KeyRangeMap<bool>* cacheInfo, std::map<Key, applyMutationsData>* uid_applyMutationsData, RequestStream<CommitTransactionRequest> commit,
-							Database cx, NotifiedVersion* commitVersion, std::map<UID, Reference<StorageInfo>>* storageCache, std::map<Tag, Version>* tag_popped, bool initialCommit ) {
+void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena& arena,
+                            VectorRef<MutationRef> const& mutations, IKeyValueStore* txnStateStore,
+                            LogPushData* toCommit, bool& confChange, Reference<ILogSystem> logSystem,
+                            Version popVersion, KeyRangeMap<std::set<Key>>* vecBackupKeys,
+                            KeyRangeMap<ServerCacheInfo>* keyInfo, KeyRangeMap<bool>* cacheInfo,
+                            std::map<Key, ApplyMutationsData>* uid_applyMutationsData,
+                            RequestStream<CommitTransactionRequest> commit, Database cx, NotifiedVersion* commitVersion,
+                            std::map<UID, Reference<StorageInfo>>* storageCache, std::map<Tag, Version>* tag_popped,
+                            bool initialCommit) {
 	//std::map<keyRef, vector<uint16_t>> cacheRangeInfo;
 	std::map<KeyRef, MutationRef> cachedRangeInfo;
 	for (auto const& m : mutations) {
@@ -178,7 +184,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &
 							.detail("M", m.toString())
 							.detail("PrevValue", t.present() ? t.get() : LiteralStringRef("(none)"))
 							.detail("ToCommit", toCommit!=nullptr);
-						if(confChange) *confChange = true;
+						confChange = true;
 					}
 				}
 				if(!initialCommit) txnStateStore->set(KeyValueRef(m.param1, m.param2));
@@ -298,7 +304,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &
 				Version requested = BinaryReader::fromStringRef<Version>(m.param2, Unversioned());
 				TraceEvent("MinRequiredCommitVersion", dbgid).detail("Min", requested).detail("Current", popVersion).detail("HasConf", !!confChange);
 				if(!initialCommit) txnStateStore->set(KeyValueRef(m.param1, m.param2));
-				if (confChange) *confChange = true;
+				confChange = true;
 				TEST(true);  // Recovering at a higher version.
 			}
 		}
@@ -318,7 +324,7 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &
 				if(!initialCommit) txnStateStore->clear(range & configKeys);
 				if(!excludedServersKeys.contains(range) && !failedServersKeys.contains(range)) {
 					TraceEvent("MutationRequiresRestart", dbgid).detail("M", m.toString());
-					if(confChange) *confChange = true;
+					confChange = true;
 				}
 			}
 			if ( serverListKeys.intersects( range )) {
@@ -334,11 +340,14 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &
 					auto serverKeysCleared = txnStateStore->readRange( range & serverTagKeys ).get();	// read is expected to be immediately available
 					for(auto &kv : serverKeysCleared) {
 						Tag tag = decodeServerTagValue(kv.value);
-						TraceEvent("ServerTagRemove").detail("PopVersion", popVersion).detail("Tag", tag.toString()).detail("Server", decodeServerTagKey(kv.key));
-						logSystem->pop( popVersion, decodeServerTagValue(kv.value) );
+						TraceEvent("ServerTagRemove")
+						    .detail("PopVersion", popVersion)
+						    .detail("Tag", tag.toString())
+						    .detail("Server", decodeServerTagKey(kv.key));
+						logSystem->pop(popVersion, decodeServerTagValue(kv.value));
 						(*tag_popped)[tag] = popVersion;
 
-						if(toCommit) {
+						if (toCommit) {
 							MutationRef privatized = m;
 							privatized.param1 = kv.key.withPrefix(systemKeys.begin, arena);
 							privatized.param2 = keyAfter(kv.key, arena).withPrefix(systemKeys.begin, arena);
@@ -542,4 +551,32 @@ void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &
 			toCommit->writeTypedMessage(mutationEnd);
 		}
 	}
+}
+
+void applyMetadataMutations(SpanID const& spanContext, ProxyCommitData& proxyCommitData, Arena& arena,
+                            Reference<ILogSystem> logSystem, const VectorRef<MutationRef>& mutations,
+                            LogPushData* toCommit, bool& confChange, Version popVersion, bool initialCommit) {
+
+	std::map<Key, ApplyMutationsData>* uid_applyMutationsData = nullptr;
+	if (proxyCommitData.firstProxy) {
+		uid_applyMutationsData = &proxyCommitData.uid_applyMutationsData;
+	}
+
+	applyMetadataMutations(spanContext, proxyCommitData.dbgid, arena, mutations, proxyCommitData.txnStateStore, toCommit, confChange,
+	                       logSystem, popVersion, &proxyCommitData.vecBackupKeys, &proxyCommitData.keyInfo,
+	                       &proxyCommitData.cacheInfo, uid_applyMutationsData, proxyCommitData.commit,
+	                       proxyCommitData.cx, &proxyCommitData.committedVersion, &proxyCommitData.storageCache,
+	                       &proxyCommitData.tag_popped, initialCommit);
+}
+
+void applyMetadataMutations(SpanID const& spanContext, const UID& dbgid, Arena& arena,
+                            const VectorRef<MutationRef>& mutations, IKeyValueStore* txnStateStore) {
+
+	bool confChange; // Dummy variable, not used.
+
+	applyMetadataMutations(spanContext, dbgid, arena, mutations, txnStateStore, /* toCommit= */ nullptr, confChange,
+	                       Reference<ILogSystem>(), /* popVersion= */ 0, /* vecBackupKeys= */ nullptr,
+	                       /* keyInfo= */ nullptr, /* cacheInfo= */ nullptr, /* uid_applyMutationsData= */ nullptr,
+	                       RequestStream<CommitTransactionRequest>(), Database(), /* commitVersion= */ nullptr,
+	                       /* storageCache= */ nullptr, /* tag_popped= */ nullptr, /* initialCommit= */ false);
 }
