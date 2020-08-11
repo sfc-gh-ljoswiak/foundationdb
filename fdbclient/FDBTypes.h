@@ -139,9 +139,9 @@ struct TagsAndMessage {
 	// Reads transaction info from the buffer rd. Returns SpanID and number of
 	// transactions in output parameters. T can be ArenaReader or BinaryReader.
 	template <class T>
-	static void loadTransactionInfoFromArena(T* rd, SpanID *context, uint32_t* transactions) {
+	static void loadTransactionInfoFromArena(T* rd, SpanID *context, uint16_t* transactions) {
 		SpanID spanContext;
-		uint32_t numTransactions;
+		uint16_t numTransactions;
 
 		*rd >> spanContext >> numTransactions;
 
@@ -166,7 +166,6 @@ struct TagsAndMessage {
 		*rd >> messageLength >> sub >> tagCount;
 		if (messageVersionSub) *messageVersionSub = sub;
 		tags = VectorRef<Tag>((Tag*)rd->readBytes(tagCount*sizeof(Tag)), tagCount);
-		*rd >> spanContext;
 		const int32_t rawLength = messageLength + sizeof(messageLength);
 		rd->rewind();
 		rd->checkpoint();

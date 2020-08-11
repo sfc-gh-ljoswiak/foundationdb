@@ -818,10 +818,26 @@ struct CompareFirst {
 	}
 };
 
+// Structure to store serialized mutations sent from the proxy to the
+// transaction logs. The serialization repeats with the following format:
+//
+// +----------------------------+ +----------+
+// |        Span Context        | | # of mut |
+// +----------------------------+ +----------+
+// <--------- 128 bits ---------> <- 16 bits->
+//
+// +----------------------+ +----------------------+ +----------+ +----------------+         +----------------------+
+// |     Message size     | |      Subsequence     | | # of tags| |      Tag       | . . . . |       Mutation       |
+// +----------------------+ +----------------------+ +----------+ +----------------+         +----------------------+
+// <------- 32 bits ------> <------- 32 bits ------> <- 16 bits-> <---- 24 bits --->         <---- variable bits --->
+//
+// . . . (repeating according to # of mutations field) . . .
+//
 struct LogPushData : NonCopyable {
 	// Log subsequences have to start at 1 (the MergedPeekCursor relies on this to make sure we never have !hasMessage() in the middle of data for a version
 
-	explicit LogPushData(Reference<ILogSystem> logSystem) : logSystem(logSystem), subsequence(1), wroteTransactionInfo(false) {
+	explicit LogPushData(Reference<ILogSystem> logSystem)
+			: logSystem(logSystem), subsequence(1), numTransactions(0), wroteTransactionInfo(false) {
 		for(auto& log : logSystem->getLogSystemConfig().tLogs) {
 			if(log.isLocal) {
 				for(int i = 0; i < log.tLogs.size(); i++) {
@@ -851,7 +867,6 @@ struct LogPushData : NonCopyable {
 
 	// Add transaction info to be written by the first mutation in the transaction
 	void addTransactionInfo(SpanID context, uint16_t transactions) {
-		// TODO: Add check for wroteTransactionInfo == true here?
 		spanContext = context;
 		numTransactions = transactions;
 		wroteTransactionInfo = false;
@@ -871,7 +886,7 @@ struct LogPushData : NonCopyable {
 			next_message_tags.clear();
 		}
 		uint32_t subseq = this->subsequence++;
-		uint32_t msgsize = rawMessageWithoutLength.size() + sizeof(subseq) + sizeof(uint16_t) + sizeof(Tag)*prev_tags.size() + sizeof(SpanID);
+		uint32_t msgsize = rawMessageWithoutLength.size() + sizeof(subseq) + sizeof(uint16_t) + sizeof(Tag)*prev_tags.size();
 		for(int loc : msg_locations) {
 			if (!wroteTransactionInfo) {
 				messagesWriter[loc] << spanContext << numTransactions;
@@ -883,7 +898,7 @@ struct LogPushData : NonCopyable {
 		}
 
 		spanContext = SpanID();
-		numTransactions = 1;
+		numTransactions = 0;
 		wroteTransactionInfo = true;
 	}
 
@@ -906,13 +921,10 @@ struct LogPushData : NonCopyable {
 		for(int loc : msg_locations) {
 			if (first) {
 				BinaryWriter& wr = messagesWriter[loc];
-				firstOffset = wr.getLength();
 				if (!wroteTransactionInfo) {
 					wr << spanContext << numTransactions;
-					spanContext = SpanID();
-					numTransactions = 1;
-					wroteTransactionInfo = true;
 				}
+				firstOffset = wr.getLength();
 				wr << uint32_t(0) << subseq << uint16_t(prev_tags.size());
 				for(auto& tag : prev_tags)
 					wr << tag;
@@ -927,6 +939,12 @@ struct LogPushData : NonCopyable {
 				wr.serializeBytes( (uint8_t*)from.getData() + firstOffset, firstLength );
 			}
 		}
+		// Reset transaction information after first message in transaction is
+		// written. Future transactions should reset this state by calling
+		// addTransactionInfo.
+		spanContext = SpanID();
+		numTransactions = 0;
+		wroteTransactionInfo = true;
 		next_message_tags.clear();
 	}
 
@@ -942,7 +960,7 @@ private:
 	std::vector<int> msg_locations;
 	uint32_t subsequence;
 	SpanID spanContext;
-	uint32_t numTransactions;
+	uint16_t numTransactions;
 	bool wroteTransactionInfo;
 };
 

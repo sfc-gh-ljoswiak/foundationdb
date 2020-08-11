@@ -45,7 +45,7 @@ Reference<StorageInfo> getStorageInfo(UID id, std::map<UID, Reference<StorageInf
 // It is incredibly important that any modifications to txnStateStore are done in such a way that
 // the same operations will be done on all proxies at the same time. Otherwise, the data stored in
 // txnStateStore will become corrupted.
-void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRef> const& mutations, IKeyValueStore* txnStateStore, LogPushData* toCommit, bool *confChange, Reference<ILogSystem> logSystem, Version popVersion,
+void applyMetadataMutations(SpanID const& spanContext, UID const& dbgid, Arena &arena, VectorRef<MutationRef> const& mutations, IKeyValueStore* txnStateStore, LogPushData* toCommit, bool *confChange, Reference<ILogSystem> logSystem, Version popVersion,
 	KeyRangeMap<std::set<Key> >* vecBackupKeys, KeyRangeMap<ServerCacheInfo>* keyInfo, KeyRangeMap<bool>* cacheInfo, std::map<Key, applyMutationsData>* uid_applyMutationsData, RequestStream<CommitTransactionRequest> commit,
 							Database cx, NotifiedVersion* commitVersion, std::map<UID, Reference<StorageInfo>>* storageCache, std::map<Tag, Version>* tag_popped, bool initialCommit ) {
 	//std::map<keyRef, vector<uint16_t>> cacheRangeInfo;
@@ -96,6 +96,7 @@ void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRe
 					TraceEvent(SevDebug, "SendingPrivateMutation", dbgid).detail("Original", m.toString()).detail("Privatized", privatized.toString()).detail("Server", serverKeysDecodeServer(m.param1))
 						.detail("TagKey", serverTagKeyFor( serverKeysDecodeServer(m.param1) )).detail("Tag", decodeServerTagValue( txnStateStore->readValue( serverTagKeyFor( serverKeysDecodeServer(m.param1) ) ).get().get() ).toString());
 
+					toCommit->addTransactionInfo(spanContext, 1);
 					toCommit->addTag( decodeServerTagValue( txnStateStore->readValue( serverTagKeyFor( serverKeysDecodeServer(m.param1) ) ).get().get() ) );
 					toCommit->writeTypedMessage(privatized);
 				}
@@ -108,6 +109,7 @@ void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRe
 					privatized.param1 = m.param1.withPrefix(systemKeys.begin, arena);
 					TraceEvent("ServerTag", dbgid).detail("Server", id).detail("Tag", tag.toString());
 
+					toCommit->addTransactionInfo(spanContext, 2);
 					toCommit->addTag(tag);
 					toCommit->writeTypedMessage(LogProtocolMessage());
 					toCommit->addTag(tag);
@@ -162,6 +164,7 @@ void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRe
 					MutationRef privatized = m;
 					privatized.param1 = m.param1.withPrefix(systemKeys.begin, arena);
 					//TraceEvent(SevDebug, "SendingPrivateMutation", dbgid).detail("Original", m.toString()).detail("Privatized", privatized.toString());
+					toCommit->addTransactionInfo(spanContext, 1);
 					toCommit->addTag( cacheTag );
 					toCommit->writeTypedMessage(privatized);
 				}
@@ -279,12 +282,14 @@ void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRe
 					allTags.insert(cacheTag);
 
 					if (m.param1 == lastEpochEndKey) {
+						toCommit->addTransactionInfo(spanContext, 1);
 						toCommit->addTags(allTags);
 						toCommit->writeTypedMessage(LogProtocolMessage());
 					}
 
 					MutationRef privatized = m;
 					privatized.param1 = m.param1.withPrefix(systemKeys.begin, arena);
+					toCommit->addTransactionInfo(spanContext, 1);
 					toCommit->addTags(allTags);
 					toCommit->writeTypedMessage(privatized);
 				}
@@ -338,6 +343,7 @@ void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRe
 							privatized.param1 = kv.key.withPrefix(systemKeys.begin, arena);
 							privatized.param2 = keyAfter(kv.key, arena).withPrefix(systemKeys.begin, arena);
 
+							toCommit->addTransactionInfo(spanContext, 1);
 							toCommit->addTag(decodeServerTagValue(kv.value));
 							toCommit->writeTypedMessage(privatized);
 						}
@@ -529,6 +535,7 @@ void applyMetadataMutations(UID const& dbgid, Arena &arena, VectorRef<MutationRe
 			}
 
 			// Add the tags to both begin and end mutations
+			toCommit->addTransactionInfo(spanContext, 2);
 			toCommit->addTags(allTags);
 			toCommit->writeTypedMessage(mutationBegin);
 			toCommit->addTags(allTags);

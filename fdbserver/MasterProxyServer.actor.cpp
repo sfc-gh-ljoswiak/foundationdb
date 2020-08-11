@@ -725,6 +725,8 @@ ACTOR Future<Void> addBackupMutations(ProxyCommitData* self, std::map<Key, Mutat
 	state int yieldBytes = 0;
 	state BinaryWriter valueWriter(Unversioned());
 
+	// TODO: Add transaction info here
+
 	// Serialize the log range mutations within the map
 	for (; logRangeMutation != logRangeMutations->end(); ++logRangeMutation)
 	{
@@ -956,7 +958,7 @@ ACTOR Future<Void> commitBatch(
 			for (int resolver = 0; resolver < resolution.size(); resolver++)
 				committed = committed && resolution[resolver].stateMutations[versionIndex][transactionIndex].committed;
 			if (committed)
-				applyMetadataMutations( self->dbgid, arena, resolution[0].stateMutations[versionIndex][transactionIndex].mutations, self->txnStateStore, nullptr, &forceRecovery, self->logSystem, 0, &self->vecBackupKeys, &self->keyInfo, &self->cacheInfo, self->firstProxy ? &self->uid_applyMutationsData : nullptr, self->commit, self->cx, &self->committedVersion, &self->storageCache, &self->tag_popped);
+				applyMetadataMutations(SpanID(), self->dbgid, arena, resolution[0].stateMutations[versionIndex][transactionIndex].mutations, self->txnStateStore, nullptr, &forceRecovery, self->logSystem, 0, &self->vecBackupKeys, &self->keyInfo, &self->cacheInfo, self->firstProxy ? &self->uid_applyMutationsData : nullptr, self->commit, self->cx, &self->committedVersion, &self->storageCache, &self->tag_popped);
 
 			if( resolution[0].stateMutations[versionIndex][transactionIndex].mutations.size() && firstStateMutations ) {
 				ASSERT(committed);
@@ -1038,7 +1040,7 @@ ACTOR Future<Void> commitBatch(
 	{
 		if (committed[t] == ConflictBatch::TransactionCommitted && (!locked || trs[t].isLockAware())) {
 			commitCount++;
-			applyMetadataMutations(self->dbgid, arena, trs[t].transaction.mutations, self->txnStateStore, &toCommit, &forceRecovery, self->logSystem, commitVersion+1, &self->vecBackupKeys, &self->keyInfo, &self->cacheInfo, self->firstProxy ? &self->uid_applyMutationsData : NULL, self->commit, self->cx, &self->committedVersion, &self->storageCache, &self->tag_popped);
+			applyMetadataMutations(trs[t].spanContext, self->dbgid, arena, trs[t].transaction.mutations, self->txnStateStore, &toCommit, &forceRecovery, self->logSystem, commitVersion+1, &self->vecBackupKeys, &self->keyInfo, &self->cacheInfo, self->firstProxy ? &self->uid_applyMutationsData : NULL, self->commit, self->cx, &self->committedVersion, &self->storageCache, &self->tag_popped);
 		}
 		if(firstStateMutations) {
 			ASSERT(committed[t] == ConflictBatch::TransactionCommitted);
@@ -2252,7 +2254,7 @@ ACTOR Future<Void> masterProxyServerCore(
 
 						Arena arena;
 						bool confChanges;
-						applyMetadataMutations(commitData.dbgid, arena, mutations, commitData.txnStateStore, nullptr, &confChanges, Reference<ILogSystem>(), 0, &commitData.vecBackupKeys, &commitData.keyInfo, &commitData.cacheInfo, commitData.firstProxy ? &commitData.uid_applyMutationsData : nullptr, commitData.commit, commitData.cx, &commitData.committedVersion, &commitData.storageCache, &commitData.tag_popped, true );
+						applyMetadataMutations(SpanID(), commitData.dbgid, arena, mutations, commitData.txnStateStore, nullptr, &confChanges, Reference<ILogSystem>(), 0, &commitData.vecBackupKeys, &commitData.keyInfo, &commitData.cacheInfo, commitData.firstProxy ? &commitData.uid_applyMutationsData : nullptr, commitData.commit, commitData.cx, &commitData.committedVersion, &commitData.storageCache, &commitData.tag_popped, true);
 					}
 
 					auto lockedKey = commitData.txnStateStore->readValue(databaseLockedKey).get();
