@@ -1398,6 +1398,7 @@ private:
 #endif
 			}
 		}
+		openTracer(TracerType::FLUENTD);
 
 		if (seedConnString.length() && seedConnFile.length()) {
 			fprintf(stderr, "%s\n",
