@@ -618,10 +618,11 @@ public:
 
 	Future<int> send(uint8_t const* begin, uint8_t const* end) override {
 		++g_net2->countUDPWrites;
-		ReadPromise p("N2_UDPWriteError", id);
-		auto res = p.getFuture();
-		socket.async_send(boost::asio::const_buffer(begin, end - begin), std::move(p));
-		return res;
+		// ReadPromise p("N2_UDPWriteError", id);
+		// auto res = p.getFuture();
+		// socket.async_send(boost::asio::const_buffer(begin, end - begin), std::move(p));
+		// return res;
+		return Future<int>(5);
 	}
 
 	Future<int> sendTo(uint8_t const* begin, uint8_t const* end, NetworkAddress const& peer) override {
