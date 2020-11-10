@@ -73,7 +73,7 @@ struct Span {
 	SmallVectorRef<SpanID> parents;
 };
 
-enum class TracerType { DISABLED, LOG_FILE, FLUENTD };
+enum class TracerType { DISABLED, LOG_FILE, UDP };
 
 struct ITracer {
 	virtual ~ITracer();
