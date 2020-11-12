@@ -376,6 +376,7 @@ struct FastUDPTracer : public UDPTracer {
 			// Will forgo checking errno here, and assume all error messages
 			// should be treated the same.
 			send_error_ = true;
+			++failed_messages_;
 		}
 		request_.reset();
 	}
@@ -384,9 +385,9 @@ private:
 	TraceRequest request_;
 
 	// Temporary debugging messages. TODO: Remove
-	int unready_socket_messages_;
-	int failed_messages_;
-	int total_messages_;
+	int unready_socket_messages_ = 0;
+	int failed_messages_ = 0;
+	int total_messages_ = 0;
 
 	int socket_fd_;
 	bool send_error_;

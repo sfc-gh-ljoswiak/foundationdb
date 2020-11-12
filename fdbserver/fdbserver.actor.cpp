@@ -1400,6 +1400,7 @@ private:
 #endif
 			}
 		}
+		openTracer(TracerType::NETWORK_LOSSY);
 
 		if (seedConnString.length() && seedConnFile.length()) {
 			fprintf(stderr, "%s\n",
