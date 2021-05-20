@@ -21,5 +21,5 @@
 #include "fdbclient/TransactionLineage.h"
 
 namespace {
-TransactionLineageCollector transactionLineageCollector;
+// TransactionLineageCollector transactionLineageCollector;
 }

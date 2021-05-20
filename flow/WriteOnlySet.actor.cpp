@@ -140,7 +140,8 @@ Reference<T> WriteOnlyVariable<T, IndexType>::get() {
 
 template <class T, class IndexType>
 bool WriteOnlyVariable<T, IndexType>::replace(const Reference<T>& element) {
-	return WriteOnlySet<T, IndexType, 1>::replace(0, element);
+	// return WriteOnlySet<T, IndexType, 1>::replace(0, element);
+	return false;
 }
 
 // Explicit instantiation
