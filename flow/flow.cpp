@@ -26,12 +26,12 @@
 #include <stdarg.h>
 #include <cinttypes>
 
-thread_local Reference<ActorLineage> currentLineage;
+thread_local Reference<ActorLineage> currentLineage = Reference<ActorLineage>{ new ActorLineage() };
 WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
 
 LineagePropertiesBase::~LineagePropertiesBase() {}
 
-ActorLineage::ActorLineage() : properties(), parent(currentLineage) {}
+ActorLineage::ActorLineage() : properties()/*, parent(currentLineage)*/ {}
 
 ActorLineage::~ActorLineage() {
 	for (auto ptr : properties) {

@@ -59,7 +59,7 @@ struct RoleLineageCollector : IALPCollector<RoleLineage> {
 ACTOR template <class Fun>
 Future<decltype(std::declval<Fun>()())> runInRole(Fun fun, ProcessClass::ClusterRole role) {
 	currentLineage->makeRoot();
-	currentLineage->modify(&RoleLineage::role) = role;
+	//currentLineage->modify(&RoleLineage::role) = role;
 	decltype(std::declval<Fun>()()) res = wait(fun());
 	return res;
 }
