@@ -70,6 +70,8 @@ bool WriteOnlySet<T, IndexType, CAPACITY>::erase(Index idx) {
 
 template <class T, class IndexType, IndexType CAPACITY>
 bool WriteOnlySet<T, IndexType, CAPACITY>::replace(Index idx, const Reference<T>& lineage) {
+	return false;
+	/*
 	auto lineagePtr = reinterpret_cast<uintptr_t>(lineage.getPtr());
 	if (lineage.isValid()) {
 		lineage->addref();
@@ -91,6 +93,7 @@ bool WriteOnlySet<T, IndexType, CAPACITY>::replace(Index idx, const Reference<T>
 			}
 		}
 	}
+	*/
 }
 
 template <class T, class IndexType, IndexType CAPACITY>
