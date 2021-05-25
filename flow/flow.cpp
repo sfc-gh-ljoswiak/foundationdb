@@ -31,12 +31,20 @@ WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
 
 LineagePropertiesBase::~LineagePropertiesBase() {}
 
-ActorLineage::ActorLineage() : properties(), parent(currentLineage) {}
+ActorLineage::ActorLineage() : properties()/*, parent(currentLineage)*/ {}
 
 ActorLineage::~ActorLineage() {
 	for (auto ptr : properties) {
 		delete ptr.second;
 	}
+}
+
+Reference<ActorLineage> getCurrentLineage() {
+	if (!currentLineage.isValid()) {
+		currentLineage = Reference<ActorLineage>{ new ActorLineage() };
+		currentLineageThreadSafe.replace(currentLineage);
+	}
+	return currentLineage;
 }
 
 using namespace std::literals;

@@ -516,6 +516,8 @@ public:
 extern thread_local Reference<ActorLineage> currentLineage;
 extern WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
 
+Reference<ActorLineage> getCurrentLineage();
+
 struct StackLineage : LineageProperties<StackLineage> {
 	static const std::string_view name;
 	StringRef actorName;
@@ -1121,7 +1123,8 @@ static inline void destruct(T& t) {
 
 template <class ReturnValue>
 struct Actor : SAV<ReturnValue> {
-	Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
+	// Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
+	Reference<ActorLineage> lineage;
 	int8_t actor_wait_state; // -1 means actor is cancelled; 0 means actor is not waiting; 1-N mean waiting in callback
 	                         // group #
 
@@ -1144,7 +1147,8 @@ template <>
 struct Actor<void> {
 	// This specialization is for a void actor (one not returning a future, hence also uncancellable)
 
-	Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
+	// Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
+	Reference<ActorLineage> lineage;
 	int8_t actor_wait_state; // 0 means actor is not waiting; 1-N mean waiting in callback group #
 
 	Actor() : actor_wait_state(0) {
