@@ -1124,7 +1124,7 @@ static inline void destruct(T& t) {
 template <class ReturnValue>
 struct Actor : SAV<ReturnValue> {
 	// Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
-	// Reference<ActorLineage> lineage;
+	Reference<ActorLineage> lineage;
 	int8_t actor_wait_state; // -1 means actor is cancelled; 0 means actor is not waiting; 1-N mean waiting in callback
 	                         // group #
 
@@ -1150,7 +1150,7 @@ struct Actor<void> {
 	// This specialization is for a void actor (one not returning a future, hence also uncancellable)
 
 	// Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
-	// Reference<ActorLineage> lineage;
+	Reference<ActorLineage> lineage;
 	int8_t actor_wait_state; // 0 means actor is not waiting; 1-N mean waiting in callback group #
 
 	Actor() : actor_wait_state(0) {
