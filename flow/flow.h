@@ -452,10 +452,29 @@ struct ActorLineage : ThreadSafeReferenceCounted<ActorLineage> {
 	friend class LocalLineage;
 
 private:
-	std::unordered_map<std::string_view, LineagePropertiesBase*> properties;
+	std::vector<std::pair<std::string_view, LineagePropertiesBase*>> properties;
 	Reference<ActorLineage> parent;
 	mutable std::mutex mutex;
 	using Lock = std::unique_lock<std::mutex>;
+	using Iterator = std::vector<std::pair<std::string_view, LineagePropertiesBase*>>::const_iterator;
+
+	Iterator find(const std::string_view& name) const {
+		for (auto it = properties.cbegin(); it != properties.cend(); ++it) {
+			if (it->first == name) {
+				return it;
+			}
+		}
+		return properties.end();
+	}
+	std::pair<std::string_view, LineagePropertiesBase*>& findOrInsert(const std::string_view& name) {
+		for (auto& pair : properties) {
+			if (pair.first == name) {
+				return pair;
+			}
+		}
+		properties.emplace_back(std::make_pair(name, nullptr));
+		return properties.back();
+	}
 
 public:
 	ActorLineage();
@@ -471,7 +490,7 @@ public:
 	template <class T, class V>
 	V& modify(V T::*member) {
 		Lock _{ mutex };
-		auto& res = properties[T::name];
+		auto& res = findOrInsert(T::name).second;
 		if (!res) {
 			res = new T{};
 		}
@@ -483,7 +502,7 @@ public:
 		Lock _{ mutex };
 		auto current = this;
 		while (current != nullptr) {
-			auto iter = current->properties.find(T::name);
+			auto iter = current->find(T::name);
 			if (iter != current->properties.end()) {
 				T const& map = static_cast<T const&>(*iter->second);
 				if (map.isSet(member)) {
@@ -500,7 +519,7 @@ public:
 		auto current = this;
 		std::vector<V> res;
 		while (current != nullptr) {
-			auto iter = current->properties.find(T::name);
+			auto iter = current->find(T::name);
 			if (iter != current->properties.end()) {
 				T const& map = static_cast<T const&>(*iter->second);
 				if (map.isSet(member)) {
