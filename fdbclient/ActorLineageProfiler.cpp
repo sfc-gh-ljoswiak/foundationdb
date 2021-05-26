@@ -278,13 +278,13 @@ ActorLineageProfilerT::ActorLineageProfilerT() : impl(new ProfilerImpl()) {
 	// collection->collector()->addGetter(
 	//     WaitState::Disk,
 	//     std::bind(&ActorLineageSet::copy, std::ref(IAsyncFileSystem::filesystem()->getActorLineageSet())));
-	collection->collector()->addGetter(WaitState::Running, []() {
-		auto res = currentLineageThreadSafe.get();
-		if (res.isValid()) {
-			return std::vector<Reference<ActorLineage>>({ res });
-		}
-		return std::vector<Reference<ActorLineage>>();
-	});
+	// collection->collector()->addGetter(WaitState::Running, []() {
+	// 	auto res = currentLineageThreadSafe.get();
+	// 	if (res.isValid()) {
+	// 		return std::vector<Reference<ActorLineage>>({ res });
+	// 	}
+	// 	return std::vector<Reference<ActorLineage>>();
+	// });
 }
 
 ActorLineageProfilerT::~ActorLineageProfilerT() {

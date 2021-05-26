@@ -1124,23 +1124,25 @@ static inline void destruct(T& t) {
 template <class ReturnValue>
 struct Actor : SAV<ReturnValue> {
 	// Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
-	Reference<ActorLineage> lineage;
+	// Reference<ActorLineage> lineage;
 	int8_t actor_wait_state; // -1 means actor is cancelled; 0 means actor is not waiting; 1-N mean waiting in callback
 	                         // group #
 
 	Actor() : SAV<ReturnValue>(1, 1), actor_wait_state(0) {
 		/*++actorCount;*/
-		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineage = lineage;
+		// currentLineageThreadSafe.replace(lineage);
 	}
 	//~Actor() { --actorCount; }
 
+	/*
 	Reference<ActorLineage> setLineage() {
 		auto res = currentLineage;
 		currentLineage = lineage;
 		currentLineageThreadSafe.replace(lineage);
 		return res;
 	}
+	*/
 };
 
 template <>
@@ -1148,32 +1150,34 @@ struct Actor<void> {
 	// This specialization is for a void actor (one not returning a future, hence also uncancellable)
 
 	// Reference<ActorLineage> lineage = Reference<ActorLineage>{ new ActorLineage() };
-	Reference<ActorLineage> lineage;
+	// Reference<ActorLineage> lineage;
 	int8_t actor_wait_state; // 0 means actor is not waiting; 1-N mean waiting in callback group #
 
 	Actor() : actor_wait_state(0) {
 		/*++actorCount;*/
-		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineage = lineage;
+		// currentLineageThreadSafe.replace(lineage);
 	}
 	//~Actor() { --actorCount; }
 
+	/*
 	Reference<ActorLineage> setLineage() {
 		auto res = currentLineage;
 		currentLineage = lineage;
 		currentLineageThreadSafe.replace(lineage);
 		return res;
 	}
+	*/
 };
 
 template <class ActorType, int CallbackNumber, class ValueType>
 struct ActorCallback : Callback<ValueType> {
 	virtual void fire(ValueType const& value) override {
-		auto _ = static_cast<ActorType*>(this)->setLineage();
+		// auto _ = static_cast<ActorType*>(this)->setLineage();
 		static_cast<ActorType*>(this)->a_callback_fire(this, value);
 	}
 	virtual void error(Error e) override {
-		auto _ = static_cast<ActorType*>(this)->setLineage();
+		// auto _ = static_cast<ActorType*>(this)->setLineage();
 		static_cast<ActorType*>(this)->a_callback_error(this, e);
 	}
 };
@@ -1181,15 +1185,15 @@ struct ActorCallback : Callback<ValueType> {
 template <class ActorType, int CallbackNumber, class ValueType>
 struct ActorSingleCallback : SingleCallback<ValueType> {
 	void fire(ValueType const& value) override {
-		auto _ = static_cast<ActorType*>(this)->setLineage();
+		// auto _ = static_cast<ActorType*>(this)->setLineage();
 		static_cast<ActorType*>(this)->a_callback_fire(this, value);
 	}
 	void fire(ValueType&& value) override {
-		auto _ = static_cast<ActorType*>(this)->setLineage();
+		// auto _ = static_cast<ActorType*>(this)->setLineage();
 		static_cast<ActorType*>(this)->a_callback_fire(this, std::move(value));
 	}
 	void error(Error e) override {
-		auto _ = static_cast<ActorType*>(this)->setLineage();
+		// auto _ = static_cast<ActorType*>(this)->setLineage();
 		static_cast<ActorType*>(this)->a_callback_error(this, e);
 	}
 };
