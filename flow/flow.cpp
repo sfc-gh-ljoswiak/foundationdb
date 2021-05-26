@@ -42,7 +42,7 @@ ActorLineage::~ActorLineage() {
 Reference<ActorLineage> getCurrentLineage() {
 	if (!currentLineage.isValid()) {
 		currentLineage = Reference<ActorLineage>{ new ActorLineage() };
-		currentLineageThreadSafe.replace(currentLineage);
+		// currentLineageThreadSafe.replace(currentLineage);
 	}
 	return currentLineage;
 }
