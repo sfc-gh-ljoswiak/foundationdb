@@ -94,22 +94,22 @@ class ScopedLineage {
 
 public:
 	ScopedLineage(V T::*member, V const& value) : member(member) {
-		// auto& val = getCurrentLineage()->modify(member);
-		// before = val;
-		// val = value;
+		auto& val = getCurrentLineage()->modify(member);
+		before = val;
+		val = value;
 	}
 	~ScopedLineage() {
 		if (!valid) {
 			return;
 		}
-		// getCurrentLineage()->modify(member) = before;
+		getCurrentLineage()->modify(member) = before;
 	}
 	ScopedLineage(ScopedLineage<T, V>&& o) : before(std::move(o.before)), member(o.member), valid(o.valid) {
 		o.release();
 	}
 	ScopedLineage& operator=(ScopedLineage<T, V>&& o) {
 		if (valid) {
-			// getCurrentLineage()->modify(member) = before;
+			getCurrentLineage()->modify(member) = before;
 		}
 		before = std::move(o.before);
 		member = o.member;
