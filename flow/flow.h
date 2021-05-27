@@ -533,7 +533,7 @@ public:
 };
 
 extern thread_local Reference<ActorLineage> currentLineage;
-extern WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
+// extern WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
 
 Reference<ActorLineage> getCurrentLineage();
 
@@ -550,11 +550,11 @@ struct LocalLineage {
 	LocalLineage() {
 		oldLineage = currentLineage;
 		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineageThreadSafe.replace(lineage);
 	}
 	~LocalLineage() {
 		currentLineage = oldLineage;
-		currentLineageThreadSafe.replace(oldLineage);
+		// currentLineageThreadSafe.replace(oldLineage);
 	}
 };
 
@@ -563,7 +563,7 @@ struct restore_lineage {
 	restore_lineage() : prev(currentLineage) {}
 	~restore_lineage() {
 		currentLineage = prev;
-		currentLineageThreadSafe.replace(prev);
+		// currentLineageThreadSafe.replace(prev);
 	}
 };
 
@@ -1149,14 +1149,14 @@ struct Actor : SAV<ReturnValue> {
 	Actor() : SAV<ReturnValue>(1, 1), actor_wait_state(0) {
 		/*++actorCount;*/
 		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineageThreadSafe.replace(lineage);
 	}
 	//~Actor() { --actorCount; }
 
 	Reference<ActorLineage> setLineage() {
 		auto res = currentLineage;
 		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineageThreadSafe.replace(lineage);
 		return res;
 	}
 };
@@ -1171,14 +1171,14 @@ struct Actor<void> {
 	Actor() : actor_wait_state(0) {
 		/*++actorCount;*/
 		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineageThreadSafe.replace(lineage);
 	}
 	//~Actor() { --actorCount; }
 
 	Reference<ActorLineage> setLineage() {
 		auto res = currentLineage;
 		currentLineage = lineage;
-		currentLineageThreadSafe.replace(lineage);
+		// currentLineageThreadSafe.replace(lineage);
 		return res;
 	}
 };

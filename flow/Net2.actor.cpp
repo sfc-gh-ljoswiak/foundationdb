@@ -1436,7 +1436,7 @@ void Net2::run() {
 		}
 
 		currentLineage = Reference<ActorLineage>();
-		currentLineageThreadSafe.replace(Reference<ActorLineage>());
+		// currentLineageThreadSafe.replace(Reference<ActorLineage>());
 		double sleepTime = 0;
 		bool b = ready.empty();
 		if (b) {

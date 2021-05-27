@@ -27,7 +27,7 @@
 #include <cinttypes>
 
 thread_local Reference<ActorLineage> currentLineage;
-WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
+// WriteOnlyVariable<ActorLineage, unsigned> currentLineageThreadSafe;
 
 LineagePropertiesBase::~LineagePropertiesBase() {}
 
