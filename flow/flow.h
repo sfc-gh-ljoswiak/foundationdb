@@ -458,12 +458,11 @@ struct ActorLineage : ThreadSafeReferenceCounted<ActorLineage> {
 
 private:
 	std::vector<Property> properties;
-	Reference<ActorLineage> parent;
+	ReferenceL<ActorLineage> parent;
 	mutable std::mutex mutex;
 	using Lock = std::unique_lock<std::mutex>;
 	using Iterator = std::vector<Property>::const_iterator;
 
-	ActorLineage();
 	Iterator find(const std::string_view& name) const {
 		for (auto it = properties.cbegin(); it != properties.cend(); ++it) {
 			if (it->name == name) {
@@ -483,6 +482,7 @@ private:
 	}
 
 public:
+	ActorLineage();
 	~ActorLineage();
 	bool isRoot() const {
 		Lock _{ mutex };
@@ -535,7 +535,7 @@ public:
 		}
 		return res;
 	}
-	Reference<ActorLineage> getParent() {
+	ReferenceL<ActorLineage> getParent() {
 		return parent;
 	}
 };
@@ -562,10 +562,10 @@ private:
 };
 
 extern std::atomic<bool> startSampling;
-extern thread_local LineageReference* currentLineage;
+extern thread_local ReferenceL<ActorLineage>* currentLineage;
 
-Reference<ActorLineage> getCurrentLineage();
-void replaceLineage(LineageReference* lineage);
+ReferenceL<ActorLineage> getCurrentLineage();
+void replaceLineage(ReferenceL<ActorLineage>* lineage);
 
 struct StackLineage : LineageProperties<StackLineage> {
 	static const std::string_view name;
@@ -573,8 +573,8 @@ struct StackLineage : LineageProperties<StackLineage> {
 };
 
 struct LineageScope {
-	LineageReference* oldLineage;
-	LineageScope(LineageReference* with) : oldLineage(currentLineage) {
+	ReferenceL<ActorLineage>* oldLineage;
+	LineageScope(ReferenceL<ActorLineage>* with) : oldLineage(currentLineage) {
 		replaceLineage(with);
 	}
 	~LineageScope() {
@@ -585,10 +585,11 @@ struct LineageScope {
 // This class can be used in order to modify all lineage properties
 // of actors created within a (non-actor) scope
 struct LocalLineage {
-	LineageReference lineage;
-	LineageReference* oldLineage;
+	ReferenceL<ActorLineage> lineage;
+	ReferenceL<ActorLineage>* oldLineage;
 	LocalLineage() {
-		lineage.allocate();
+		lineage.setPtrUnsafe(new ActorLineage());
+		lineage.allocated = true;
 		oldLineage = currentLineage;
 		replaceLineage(&lineage);
 	}
@@ -1174,14 +1175,14 @@ static inline void destruct(T& t) {
 
 template <class ReturnValue>
 struct Actor : SAV<ReturnValue> {
-	LineageReference lineage = *currentLineage;
-	int8_t actor_wait_state; // -1 means actor is cancelled; 0 means actor is not waiting; 1-N mean waiting in callback
+	ReferenceL<ActorLineage> lineage = *currentLineage;
+	// int8_t actor_wait_state; // -1 means actor is cancelled; 0 means actor is not waiting; 1-N mean waiting in callback
 	                         // group #
 
-	Actor() : SAV<ReturnValue>(1, 1), actor_wait_state(0) { /*++actorCount;*/ }
+	Actor() : SAV<ReturnValue>(1, 1) { /*++actorCount;*/ }
 	// ~Actor() { --actorCount; }
 
-	LineageReference* lineageAddr() {
+	ReferenceL<ActorLineage>* lineageAddr() {
 		return std::addressof(lineage);
 	}
 };
@@ -1190,13 +1191,13 @@ template <>
 struct Actor<void> {
 	// This specialization is for a void actor (one not returning a future, hence also uncancellable)
 
-	LineageReference lineage = *currentLineage;
-	int8_t actor_wait_state; // 0 means actor is not waiting; 1-N mean waiting in callback group #
+	ReferenceL<ActorLineage> lineage = *currentLineage;
+	// int8_t actor_wait_state; // 0 means actor is not waiting; 1-N mean waiting in callback group #
 
-	Actor() : actor_wait_state(0) { /*++actorCount;*/ }
+	Actor() { /*++actorCount;*/ }
 	// ~Actor() { --actorCount; }
 
-	LineageReference* lineageAddr() {
+	ReferenceL<ActorLineage>* lineageAddr() {
 		return std::addressof(lineage);
 	}
 };

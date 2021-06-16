@@ -28,8 +28,8 @@
 
 
 std::atomic<bool> startSampling = false;
-LineageReference rootLineage;
-thread_local LineageReference* currentLineage = &rootLineage;
+ReferenceL<ActorLineage> rootLineage;
+thread_local ReferenceL<ActorLineage>* currentLineage = &rootLineage;
 
 LineagePropertiesBase::~LineagePropertiesBase() {}
 
@@ -41,16 +41,17 @@ ActorLineage::~ActorLineage() {
 	}
 }
 
-Reference<ActorLineage> getCurrentLineage() {
-	if (!currentLineage->isValid() || !currentLineage->isAllocated()) {
-		currentLineage->allocate();
+ReferenceL<ActorLineage> getCurrentLineage() {
+	if (!currentLineage->isValid() || !currentLineage->allocated) {
+		currentLineage->setPtrUnsafe(new ActorLineage());
+		currentLineage->allocated = true;
 	}
 	return *currentLineage;
 }
 
-void sample(Reference<ActorLineage>* p);
+void sample(ReferenceL<ActorLineage>* p);
 
-void replaceLineage(LineageReference* lineage) {
+void replaceLineage(ReferenceL<ActorLineage>* lineage) {
 	if (!startSampling) {
 		currentLineage = lineage;
 	} else {

@@ -194,4 +194,105 @@ bool operator!=(const Reference<P>& lhs, const Reference<P>& rhs) {
 	return !(lhs == rhs);
 }
 
+class ActorLineage;
+template <class P>
+class ReferenceL {
+public:
+	ReferenceL() : ptr(nullptr) {}
+	explicit ReferenceL(int8_t wait_state) : allocated(false), actor_wait_state(wait_state) {}
+	explicit ReferenceL(P* ptr) : ptr(ptr) {}
+	static ReferenceL<P> addRef(P* ptr) {
+		ptr->addref();
+		return ReferenceL(ptr);
+	}
+
+	ReferenceL(const ReferenceL& r) : ptr(r.getPtr()), allocated(false), actor_wait_state(0) {
+		if (ptr)
+			addref(ptr);
+	}
+	ReferenceL(ReferenceL&& r) noexcept : ptr(r.getPtr()), allocated(false), actor_wait_state(0) { r.ptr = nullptr; }
+
+	template <class Q>
+	ReferenceL(const ReferenceL<Q>& r) : ptr(r.getPtr()), allocated(false), actor_wait_state(0) {
+		if (ptr)
+			addref(ptr);
+	}
+	template <class Q>
+	ReferenceL(ReferenceL<Q>&& r) : ptr(r.getPtr()), allocated(false), actor_wait_state(0) {
+		r.setPtrUnsafe(nullptr);
+	}
+
+	~ReferenceL() {
+		if (ptr)
+			delref(ptr);
+	}
+	ReferenceL& operator=(const ReferenceL& r) {
+		P* oldPtr = ptr;
+		P* newPtr = r.ptr;
+		if (oldPtr != newPtr) {
+			if (newPtr)
+				addref(newPtr);
+			ptr = newPtr;
+			if (oldPtr)
+				delref(oldPtr);
+		}
+		actor_wait_state = r.actor_wait_state;
+		return *this;
+	}
+	ReferenceL& operator=(ReferenceL&& r) noexcept {
+		P* oldPtr = ptr;
+		P* newPtr = r.ptr;
+		if (oldPtr != newPtr) {
+			r.ptr = nullptr;
+			ptr = newPtr;
+			if (oldPtr)
+				delref(oldPtr);
+		}
+		actor_wait_state = r.actor_wait_state;
+		return *this;
+	}
+
+	void clear() {
+		P* oldPtr = ptr;
+		if (oldPtr) {
+			ptr = nullptr;
+			delref(oldPtr);
+		}
+	}
+
+	P* operator->() const { return ptr; }
+	P& operator*() const { return *ptr; }
+	P* getPtr() const { return ptr; }
+
+	void setPtrUnsafe(P* p) { ptr = p; }
+
+	P* extractPtr() {
+		auto* p = ptr;
+		ptr = nullptr;
+		return p;
+	}
+
+	template <class T>
+	ReferenceL<T> castTo() {
+		return ReferenceL<T>::addRef((T*)ptr);
+	}
+
+	bool isValid() const { return ptr != nullptr; }
+	explicit operator bool() const { return ptr != nullptr; }
+
+public:
+	P* ptr;
+	bool allocated = false;
+	int8_t actor_wait_state;
+};
+
+template <class P>
+bool operator==(const ReferenceL<P>& lhs, const ReferenceL<P>& rhs) {
+	return lhs.getPtr() == rhs.getPtr();
+}
+template <class P>
+bool operator!=(const ReferenceL<P>& lhs, const ReferenceL<P>& rhs) {
+	return !(lhs == rhs);
+}
+
 #endif

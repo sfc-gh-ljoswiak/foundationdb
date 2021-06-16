@@ -35,7 +35,7 @@ void samplingProfilerUpdateFrequency(std::optional<std::any> freq);
 void samplingProfilerUpdateWindow(std::optional<std::any> window);
 
 // TODO: For debugging, remove
-LineageReference* curLineage();
+ReferenceL<ActorLineage>* curLineage();
 
 struct IALPCollectorBase {
 	virtual std::optional<std::any> collect(ActorLineage*) = 0;
@@ -143,7 +143,7 @@ class SampleCollection_t {
 
 	SampleCollector _collector;
 	mutable std::mutex mutex;
-	std::atomic<double> windowSize = 60.0;
+	std::atomic<double> windowSize = 0.0;
 	std::deque<std::shared_ptr<Sample>> data;
 	ProfilerConfig config;
 

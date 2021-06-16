@@ -30,7 +30,7 @@
 using namespace std::literals;
 
 // TODO: For debugging, remove
-LineageReference* curLineage() {
+ReferenceL<ActorLineage>* curLineage() {
 	return currentLineage;
 }
 
@@ -249,10 +249,10 @@ std::vector<std::shared_ptr<Sample>> SampleCollection_t::get(double from /*= 0.0
 	return res;
 }
 
-void sample(Reference<ActorLineage>* p) {
+void sample(ReferenceL<ActorLineage>* p) {
 	if (!p->isValid()) { return; }
-	boost::asio::post(ActorLineageProfiler::instance().context(), [lineage = Reference<ActorLineage>::addRef(p->getPtr())]() {
-		SampleCollection::instance().collect(lineage);
+	boost::asio::post(ActorLineageProfiler::instance().context(), [lineage = ReferenceL<ActorLineage>::addRef(p->getPtr())]() {
+		// SampleCollection::instance().collect(lineage);
 	});
 }
 
