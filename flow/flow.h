@@ -581,10 +581,14 @@ struct StackLineage : LineageProperties<StackLineage> {
 struct LineageScope {
 	LineageReference* oldLineage;
 	LineageScope(LineageReference* with) : oldLineage(currentLineage) {
+#ifndef DISABLE_SAMPLING
 		replaceLineage(with);
+#endif
 	}
 	~LineageScope() {
+#ifndef DISABLE_SAMPLING
 		replaceLineage(oldLineage);
+#endif
 	}
 };
 
@@ -1186,6 +1190,8 @@ template <class ReturnValue>
 struct Actor : SAV<ReturnValue> {
 #ifndef DISABLE_SAMPLING
 	LineageReference lineage = *currentLineage;
+#else
+	LineageReference lineage;
 #endif
 	int8_t actor_wait_state; // -1 means actor is cancelled; 0 means actor is not waiting; 1-N mean waiting in callback
 	                         // group #
@@ -1206,6 +1212,8 @@ struct Actor<void> {
 
 #ifndef DISABLE_SAMPLING
 	LineageReference lineage = *currentLineage;
+#else
+	LineageReference lineage;
 #endif
 	int8_t actor_wait_state; // 0 means actor is not waiting; 1-N mean waiting in callback group #
 
