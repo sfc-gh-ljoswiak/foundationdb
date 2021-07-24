@@ -147,9 +147,20 @@ if(BUILD_AZURE_BACKUP)
   )
 endif()
 
+# Create a separate fdbclient library with sampling enabled. This lets
+# fdbserver retain sampling functionality in client code while disabling
+# sampling for pure clients.
+add_flow_target(STATIC_LIBRARY NAME fdbclient_sampling SRCS ${FDBCLIENT_SRCS} ADDL_SRCS ${options_srcs})
+add_dependencies(fdbclient_sampling fdboptions)
+target_link_libraries(fdbclient_sampling PUBLIC fdbrpc msgpack)
+if(BUILD_AZURE_BACKUP)
+  target_link_libraries(fdbclient_sampling PRIVATE curl uuid azure-storage-lite)
+endif()
+
 add_flow_target(STATIC_LIBRARY NAME fdbclient SRCS ${FDBCLIENT_SRCS} ADDL_SRCS ${options_srcs})
 add_dependencies(fdbclient fdboptions)
 target_link_libraries(fdbclient PUBLIC fdbrpc msgpack)
 if(BUILD_AZURE_BACKUP)
   target_link_libraries(fdbclient PRIVATE curl uuid azure-storage-lite)
 endif()
+target_compile_definitions(fdbclient PRIVATE -DDISABLE_SAMPLING)

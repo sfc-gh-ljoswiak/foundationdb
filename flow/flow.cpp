@@ -26,7 +26,6 @@
 #include <stdarg.h>
 #include <cinttypes>
 
-
 std::atomic<bool> startSampling = false;
 LineageReference rootLineage;
 thread_local LineageReference* currentLineage = &rootLineage;
