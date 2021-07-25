@@ -13,6 +13,7 @@ endif()
 
 add_flow_target(EXECUTABLE NAME fdbcli SRCS ${FDBCLI_SRCS})
 target_link_libraries(fdbcli PRIVATE fdbclient)
+target_compile_definitions(fdbcli PRIVATE -DDISABLE_SAMPLING)
 
 if(NOT OPEN_FOR_IDE)
   if(GENERATE_DEBUG_PACKAGES)
