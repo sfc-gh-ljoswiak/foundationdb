@@ -289,11 +289,11 @@ struct ProfilerImpl {
 };
 
 ActorLineageProfilerT::ActorLineageProfilerT() : impl(new ProfilerImpl()) {
-	collection->collector()->addGetter(WaitState::Network,
-	                                   std::bind(&ActorLineageSet::copy, std::ref(g_network->getActorLineageSet())));
-	collection->collector()->addGetter(
-	    WaitState::Disk,
-	    std::bind(&ActorLineageSet::copy, std::ref(IAsyncFileSystem::filesystem()->getActorLineageSet())));
+	// collection->collector()->addGetter(WaitState::Network,
+	//                                    std::bind(&ActorLineageSet::copy, std::ref(g_network->getActorLineageSet())));
+	// collection->collector()->addGetter(
+	//     WaitState::Disk,
+	//     std::bind(&ActorLineageSet::copy, std::ref(IAsyncFileSystem::filesystem()->getActorLineageSet())));
 	collection->collector()->addGetter(WaitState::Running, []() {
 		return std::vector<Reference<ActorLineage>>({ SampleCollection::instance().getCurrentLineage() });
 	});
