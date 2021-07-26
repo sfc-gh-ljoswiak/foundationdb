@@ -31,9 +31,11 @@
 using namespace std::literals;
 
 // TODO: For debugging, remove
+#ifndef DISABLE_SAMPLING
 LineageReference* curLineage() {
 	return currentLineage;
 }
+#endif
 
 class Packer : public msgpack::packer<msgpack::sbuffer> {
 	struct visitor_t {

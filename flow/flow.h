@@ -578,19 +578,17 @@ struct StackLineage : LineageProperties<StackLineage> {
 	StringRef actorName;
 };
 
+#ifndef DISABLE_SAMPLING
 struct LineageScope {
 	LineageReference* oldLineage;
 	LineageScope(LineageReference* with) : oldLineage(currentLineage) {
-#ifndef DISABLE_SAMPLING
 		replaceLineage(with);
-#endif
 	}
 	~LineageScope() {
-#ifndef DISABLE_SAMPLING
 		replaceLineage(oldLineage);
-#endif
 	}
 };
+#endif
 
 // This class can be used in order to modify all lineage properties
 // of actors created within a (non-actor) scope

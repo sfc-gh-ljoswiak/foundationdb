@@ -39,7 +39,9 @@ public:
 
 	Future<Void> renameFile(std::string const& from, std::string const& to) override;
 
+#ifndef DISABLE_SAMPLING
 	ActorLineageSet& getActorLineageSet() override;
+#endif
 
 	// void init();
 	static void stop();
@@ -54,7 +56,9 @@ public:
 	dev_t fileSystemDeviceId;
 	bool checkFileSystem;
 #endif
+#ifndef DISABLE_SAMPLING
 	ActorLineageSet actorLineageSet;
+#endif
 };
 
 #endif
