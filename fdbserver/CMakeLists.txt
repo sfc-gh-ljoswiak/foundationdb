@@ -287,6 +287,7 @@ else()
 endif()
 
 target_link_libraries(fdbserver PRIVATE toml11_target jemalloc)
+target_compile_definitions(fdbserver PRIVATE -DENABLE_SAMPLING)
 
 if (GPERFTOOLS_FOUND)
   target_link_libraries(fdbserver PRIVATE gperftools)

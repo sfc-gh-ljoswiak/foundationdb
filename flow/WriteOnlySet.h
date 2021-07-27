@@ -24,7 +24,7 @@
 #include "flow/Trace.h"
 #include <boost/lockfree/queue.hpp>
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 /**
  * This is a Write-Only set that supports copying the whole content. This data structure is lock-free and allows a user
  * to insert and remove objects up to a given capacity (passed by a template).

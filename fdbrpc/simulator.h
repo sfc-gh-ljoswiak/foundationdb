@@ -480,7 +480,7 @@ public:
 
 	Future<std::time_t> lastWriteTime(const std::string& filename) override;
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 	ActorLineageSet& getActorLineageSet() override;
 #endif
 
@@ -492,7 +492,7 @@ public:
 
 	static void newFileSystem();
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 	ActorLineageSet actorLineageSet;
 #endif
 };

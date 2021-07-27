@@ -204,7 +204,7 @@ public:
 
 	bool checkRunnable() override;
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 	ActorLineageSet& getActorLineageSet() override;
 #endif
 
@@ -237,7 +237,7 @@ public:
 	std::atomic<bool> stopped;
 	mutable std::map<IPAddress, bool> addressOnHostCache;
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 	ActorLineageSet actorLineageSet;
 #endif
 
@@ -1393,7 +1393,7 @@ bool Net2::checkRunnable() {
 	return !started.exchange(true);
 }
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 ActorLineageSet& Net2::getActorLineageSet() {
 	return actorLineageSet;
 }

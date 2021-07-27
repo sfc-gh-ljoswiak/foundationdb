@@ -31,7 +31,7 @@
 using namespace std::literals;
 
 // TODO: For debugging, remove
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 LineageReference* curLineage() {
 	return currentLineage;
 }

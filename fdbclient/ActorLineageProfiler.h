@@ -35,7 +35,7 @@ void samplingProfilerUpdateFrequency(std::optional<std::any> freq);
 void samplingProfilerUpdateWindow(std::optional<std::any> window);
 
 // TODO: For debugging, remove
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 LineageReference* curLineage();
 #endif
 

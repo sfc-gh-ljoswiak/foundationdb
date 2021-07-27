@@ -32,7 +32,7 @@ thread_local LineageReference* currentLineage = &rootLineage;
 
 LineagePropertiesBase::~LineagePropertiesBase() {}
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 ActorLineage::ActorLineage() : properties(), parent(*currentLineage) {}
 #else
 ActorLineage::ActorLineage() : properties() {}

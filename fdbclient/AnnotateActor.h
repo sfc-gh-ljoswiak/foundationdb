@@ -34,7 +34,7 @@ struct AnnotateActor {
 	AnnotateActor() : set(false) {}
 
 	AnnotateActor(LineageReference* lineage) : set(false) {
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 		if (lineage->getPtr() != 0) {
 			index = g_network->getActorLineageSet().insert(*lineage);
 			set = (index != ActorLineageSet::npos);
@@ -60,7 +60,7 @@ struct AnnotateActor {
 	}
 
 	~AnnotateActor() {
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 		if (set) {
 			g_network->getActorLineageSet().erase(index);
 		}
@@ -86,6 +86,6 @@ constexpr std::string_view to_string(WaitState st) {
 	}
 }
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 extern std::map<WaitState, std::function<std::vector<Reference<ActorLineage>>()>> samples;
 #endif

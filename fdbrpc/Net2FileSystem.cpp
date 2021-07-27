@@ -89,7 +89,7 @@ Future<std::time_t> Net2FileSystem::lastWriteTime(const std::string& filename) {
 	return Net2AsyncFile::lastWriteTime(filename);
 }
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 ActorLineageSet& Net2FileSystem::getActorLineageSet() {
 	return actorLineageSet;
 }

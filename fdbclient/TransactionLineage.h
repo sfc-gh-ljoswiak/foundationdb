@@ -86,7 +86,7 @@ struct TransactionLineageCollector : IALPCollector<TransactionLineage> {
 	}
 };
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 template <class T, class V>
 class ScopedLineage {
 	V before;

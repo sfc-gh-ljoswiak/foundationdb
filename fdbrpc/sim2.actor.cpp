@@ -979,7 +979,7 @@ public:
 
 	bool checkRunnable() override { return net2->checkRunnable(); }
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 	ActorLineageSet& getActorLineageSet() override {
 		return actorLineageSet;
 	}
@@ -2128,7 +2128,7 @@ public:
 	bool yielded;
 	int yield_limit; // how many more times yield may return false before next returning true
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 	ActorLineageSet actorLineageSet;
 #endif
 };
@@ -2515,7 +2515,7 @@ Future<std::time_t> Sim2FileSystem::lastWriteTime(const std::string& filename) {
 	return fileWrites[filename];
 }
 
-#ifndef DISABLE_SAMPLING
+#ifdef ENABLE_SAMPLING
 ActorLineageSet& Sim2FileSystem::getActorLineageSet() {
 	return actorLineageSet;
 }
