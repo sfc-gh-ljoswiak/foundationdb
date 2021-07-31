@@ -2370,6 +2370,7 @@ ACTOR Future<Void> fdbd(Reference<ClusterConnectionFile> connFile,
 		auto asyncPriorityInfo =
 		    makeReference<AsyncVar<ClusterControllerPriorityInfo>>(getCCPriorityInfo(fitnessFilePath, processClass));
 		auto dbInfo = makeReference<AsyncVar<ServerDBInfo>>();
+		ActorLineageProfiler::instance().setFrequency(50);
 
 		if (useConfigDB != UseConfigDB::DISABLED) {
 			actors.push_back(reportErrors(localConfig.consume(IAsyncListener<ConfigBroadcastFollowerInterface>::create(
