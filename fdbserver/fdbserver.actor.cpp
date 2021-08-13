@@ -1506,6 +1506,9 @@ private:
 		}
 
 		try {
+			profilerConfig["ingestor"] = "fluentd";
+			profilerConfig["ingestor_endpoint"] = "127.0.0.1:12563";
+			profilerConfig["ingestor_protocol"] = "udp";
 			ProfilerConfig::instance().reset(profilerConfig);
 		} catch (ConfigError& e) {
 			printf("Error seting up profiler: %s", e.description.c_str());
