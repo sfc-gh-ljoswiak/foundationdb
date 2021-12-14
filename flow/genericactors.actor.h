@@ -1613,17 +1613,21 @@ struct YieldedFutureActor : SAV<Void>, ActorCallback<YieldedFutureActor, 1, Void
 			SAV<Void>::sendErrorAndDelPromiseRef(in_error_state);
 	}
 	void doYield() {
-		// Since we are being fired, we are the first callback in the ring, and `prev` is the source future
-		Callback<Void>* source = CB1::prev;
-		ASSERT(source->next == static_cast<CB1*>(this));
+		Callback<Void>* current = static_cast<CB1*>(this);
+		// TODO: Possible edge case here where linked list contains two nodes
+		while (current->next->next != static_cast<CB1*>(this))
+			current = current->next;
+
+		// Since we are being fired, we are the first callback in the ring, and the previous callback is the source
+		// future
+		Callback<Void>* source = current->next;
 
 		// Remove the source future from the ring.  All the remaining callbacks in the ring should be yielded, since
 		// yielded callbacks are installed at the end
-		CB1::prev = source->prev;
-		CB1::prev->next = static_cast<CB1*>(this);
+		current->next = static_cast<CB1*>(this);
 
 		// The source future's ring is now empty, since we have removed all the callbacks
-		source->next = source->prev = source;
+		source->next = source;
 		source->unwait();
 
 		// Link all the callbacks, including this one, into the ring of a delay future so that after a short time they

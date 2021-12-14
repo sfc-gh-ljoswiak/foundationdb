@@ -354,7 +354,7 @@ struct serialize_raw<ErrorOr<EnsureTable<CachedSerialization<V>>>> : std::true_t
 
 template <class T>
 struct Callback {
-	Callback<T>*prev, *next;
+	Callback<T>* next;
 
 	virtual void fire(T const&) {}
 	virtual void fire(T&&) {}
@@ -363,36 +363,37 @@ struct Callback {
 
 	void insert(Callback<T>* into) {
 		// Add this (uninitialized) callback just after `into`
-		this->prev = into;
 		this->next = into->next;
-		into->next->prev = this;
 		into->next = this;
 	}
 
 	void insertBack(Callback<T>* into) {
 		// Add this (uninitialized) callback just before `into`
+		auto current = into;
+		while (current->next != into) {
+			current = current->next;
+		}
+		current->next = this;
 		this->next = into;
-		this->prev = into->prev;
-		into->prev->next = this;
-		into->prev = this;
 	}
 
 	void insertChain(Callback<T>* into) {
 		// Combine this callback's (initialized) chain and `into`'s such that this callback is just after `into`
-		auto p = this->prev;
-		auto n = into->next;
-		this->prev = into;
+		auto current = this;
+		while (current->next != this)
+			current = current->next;
+		current->next = into;
 		into->next = this;
-		p->next = n;
-		n->prev = p;
 	}
 
 	void remove() {
 		// Remove this callback from the list it is in, and call unwait() on the head of that list if this was the last
 		// callback
-		next->prev = prev;
-		prev->next = next;
-		if (prev == next)
+		auto current = this;
+		while (current->next != this)
+			current = current->next;
+		current->next = current->next->next;
+		if (current == next)
 			next->unwait();
 	}
 
@@ -632,7 +633,7 @@ public:
 
 	SAV(int futures, int promises)
 	  : promises(promises), futures(futures), error_state(Error::fromCode(UNSET_ERROR_CODE)) {
-		Callback<T>::prev = Callback<T>::next = this;
+		Callback<T>::next = this;
 	}
 	~SAV() {
 		if (int16_t(error_state.code()) == SET_ERROR_CODE)
