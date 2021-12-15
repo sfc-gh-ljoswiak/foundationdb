@@ -370,9 +370,8 @@ struct Callback {
 	void insertBack(Callback<T>* into) {
 		// Add this (uninitialized) callback just before `into`
 		auto current = into;
-		while (current->next != into) {
+		while (current->next != into)
 			current = current->next;
-		}
 		current->next = this;
 		this->next = into;
 	}
@@ -382,8 +381,9 @@ struct Callback {
 		auto current = this;
 		while (current->next != this)
 			current = current->next;
-		current->next = into;
+		auto n = into->next;
 		into->next = this;
+		current->next = n;
 	}
 
 	void remove() {
