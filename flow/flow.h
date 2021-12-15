@@ -392,9 +392,7 @@ struct Callback {
 		auto current = this;
 		while (current->next != this)
 			current = current->next;
-		auto tmp = current->next->next;
-		current->next->next = current->next;
-		current->next = tmp;
+		current->next = current->next->next;
 		if (current == next)
 			next->unwait();
 	}
