@@ -124,7 +124,7 @@ struct DynamicContext {
 	DynamicContext(StaticContext& staticContext, expression::Table const& root) : staticContext(staticContext) {
 		addTable(root);
 		writeVTableOffsets();
-		writeTableOffset(root);
+		// writeTableOffset(root);
 	}
 
 	// returns the offset, from the offset of the buffer, to the vtable
@@ -454,72 +454,134 @@ void emitDeserializeTable(StaticContext* context, Streams& out, expression::Tabl
 	EMIT(out.source, "");
 }
 
-void emitCalculateDynamicOffsetVectorOf(Streams& out, TypeName const& name, expression::Table const& table) {
-	auto fullyQualifiedName = name.fullyQualifiedCppName(table);
-	EMIT(out.source, "namespace {{");
-	EMIT(out.source,
-	     "unsigned calcDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& currentOffset, "
-	     "std::vector<{}> const& vec) {{", fullyQualifiedName);
-	EMIT(out.source, "\tauto key = reinterpret_cast<uintptr_t>(vec.data());");
-	EMIT(out.source, "\tif (offsets.count(key)) {{ return; }}");
-	EMIT(out.source, "\tif (currentOffset % 4 != 0) {{");
-	EMIT(out.source, "\t\tcurrentOffset += 4 - (currentOffset % 4);");
+void emitCalculateDynamicOffsetString(Streams& out, std::string const& qualifiedName) {
+	EMIT(out.source, "\t{{");
+	EMIT(out.source, "\t\tauto key = reinterpret_cast<uintptr_t>({}.data());", qualifiedName);
+	EMIT(out.source, "\t\tif (offsets.count(key)) {{ return; }}");
+	EMIT(out.source, "\t\tif (currentOffset % 4 != 0) {{");
+	EMIT(out.source, "\t\t\tcurrentOffset += 4 - (currentOffset % 4);");
+	EMIT(out.source, "\t\t}}");
+	EMIT(out.source, "\t\toffsets.emplace(key, currentOffset);");
+	EMIT(out.source, "\t\tcurrentOffset += {}.size() + 5; // 4 for size, 1 for 0-terminator", qualifiedName);
 	EMIT(out.source, "\t}}");
-	EMIT(out.source, "\toffsets.emplace(key, currentOffset);");
-	EMIT(out.source, "\tcurrentOffset += 4 * vec.size() + 4; // 4 for size");
-	EMIT(out.source, "\tfor (auto const& t : vec) {{");
-	EMIT(out.source, "\t\tt._calculateDynamicOffsets(offsets, currentOffset);");
+}
+
+void emitCalculateDynamicOffsetVectorOfPrimitive(Streams& out,
+                                                 expression::PrimitiveType const& t,
+                                                 std::string const& qualifiedName) {
+	auto sz = t.size();
+	if (t.typeClass == expression::PrimitiveTypeClass::StringType) {
+		EMIT(out.source, "\tfor (auto const& s : {}) {{", qualifiedName);
+		emitCalculateDynamicOffsetString(out, "s");
+		EMIT(out.source, "\t}}");
+		sz = 4;
+	}
+	EMIT(out.source, "\t{{");
+	EMIT(out.source, "\t\tauto key = reinterpret_cast<uintptr_t>({}.data());", qualifiedName);
+	EMIT(out.source, "\t\tif (offsets.count(key)) {{ return; }}");
+	EMIT(out.source, "\t\tif (currentOffset % 4 != 0) {{");
+	EMIT(out.source, "\t\t\tcurrentOffset += 4 - (currentOffset % 4);");
+	EMIT(out.source, "\t\t}}");
+	EMIT(out.source, "\t\toffsets.emplace(key, currentOffset);");
+	EMIT(out.source, "\t\tcurrentOffset += {} * {}.size() + 4; // 4 for size", sz, qualifiedName);
 	EMIT(out.source, "\t}}");
-	EMIT(out.source, "}}");
-	EMIT(out.source, "}}");
+}
+
+void emitCalculateDynamicOffsetVectorOfTable(Streams& out, std::string const& qualifiedName) {
+	EMIT(out.source, "\t\tfor (auto const& t : vec) {{");
+	EMIT(out.source, "\t\t\t{}._calculateDynamicOffsets(offsets, currentOffset);", qualifiedName);
+	EMIT(out.source, "\t\t}}");
+	EMIT(out.source, "\t{{");
+	EMIT(out.source, "\t\tauto key = reinterpret_cast<uintptr_t>(&{});", qualifiedName);
+	EMIT(out.source, "\t\tif (offsets.count(key)) {{ return; }}");
+	EMIT(out.source, "\t\tif (currentOffset % 4 != 0) {{");
+	EMIT(out.source, "\t\t\tcurrentOffset += 4 - (currentOffset % 4);");
+	EMIT(out.source, "\t\t}}");
+	EMIT(out.source, "\t\toffsets.emplace(key, currentOffset);");
+	EMIT(out.source, "\t\tcurrentOffset += 4 * vec.size() + 4; // 4 for size");
+	EMIT(out.source, "\t}}");
 }
 
 void emitCalculateDynamicOffsetVectorOf(Streams& out, TypeName const& name, expression::Struct const& st) {
 	auto fullyQualifiedName = name.fullyQualifiedCppName(st);
-	EMIT(out.source, "namespace {{");
-	EMIT(out.source,
-	     "void calcDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& currentOffset, "
-	     "std::vector<{}> const& vec) {{", fullyQualifiedName);
-	EMIT(out.source, "\tauto key = reinterpret_cast<uintptr_t>(vec.data());");
-	EMIT(out.source, "\tif (offsets.count(key)) {{ return; }}");
-	EMIT(out.source, "\tif (currentOffset % 4 != 0) {{");
-	EMIT(out.source, "\t\tcurrentOffset += 4 - (currentOffset % 4);");
+	EMIT(out.source, "\t{{");
+	EMIT(out.source, "\t\tauto key = reinterpret_cast<uintptr_t>(vec.data());");
+	EMIT(out.source, "\t\tif (offsets.count(key)) {{ return; }}");
+	EMIT(out.source, "\t\tif (currentOffset % 4 != 0) {{");
+	EMIT(out.source, "\t\t\tcurrentOffset += 4 - (currentOffset % 4);");
+	EMIT(out.source, "\t\t}}");
+	EMIT(out.source, "\t\toffsets.emplace(key, currentOffset);");
+	EMIT(out.source, "\t\tcurrentOffset += {}::_fbSize() * vec.size() + 4; // 4 for size", fullyQualifiedName);
 	EMIT(out.source, "\t}}");
-	EMIT(out.source, "\toffsets.emplace(key, currentOffset);");
-	EMIT(out.source, "\tcurrentOffset += {}::_fbSize() * vec.size() + 4; // 4 for size", fullyQualifiedName);
-	EMIT(out.source, "}}");
-	EMIT(out.source, "}}");
 }
 
-void emitCalculateDynamicOffsetVectorOf(Streams& out, expression::PrimitiveType const& p) {
-	EMIT(out.source, "namespace {{");
-	EMIT(out.source,
-	     "void calcDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& currentOffset, "
-	     "std::vector<{}> const& vec) {{", p.nativeName);
-	EMIT(out.source, "\tauto key = reinterpret_cast<uintptr_t>(vec.data());");
-	EMIT(out.source, "\tif (offsets.count(key)) {{ return; }}");
-	EMIT(out.source, "\tif (currentOffset % 4 != 0) {{");
-	EMIT(out.source, "\t\tcurrentOffset += 4 - (currentOffset % 4);");
-	EMIT(out.source, "\t}}");
-	EMIT(out.source, "\toffsets.emplace(key, currentOffset);");
-	EMIT(out.source, "\tcurrentOffset += {} * vec.size() + 4; // 4 for size", p.size());
-	EMIT(out.source, "}}");
-	EMIT(out.source, "}}");
+void emitCalculateDynamicOffsetVector(DynamicContext& context,
+                                      Streams& out,
+                                      expression::Field const& f,
+                                      TypeName const& typeName,
+                                      expression::Type const& type) {
+	assertTrue(f.isArrayType);
+	switch (type.typeType()) {
+	case expression::TypeType::Primitive:
+		emitCalculateDynamicOffsetVectorOfPrimitive(
+		    out, dynamic_cast<expression::PrimitiveType const&>(type), fmt::format("this->{}", f.name));
+		break;
+	case expression::TypeType::Enum: {
+		auto const& underlyingType =
+		    *assertTrue(context.staticContext.resolve(dynamic_cast<expression::Enum const&>(type).type))->second;
+		emitCalculateDynamicOffsetVectorOfPrimitive(
+		    out, dynamic_cast<expression::PrimitiveType const&>(underlyingType), fmt::format("this->{}", f.name));
+		break;
+	}
+	case expression::TypeType::Struct:
+		emitCalculateDynamicOffsetVectorOf(out, typeName, reinterpret_cast<expression::Struct const&>(type));
+		break;
+	case expression::TypeType::Union:
+		EMIT(out.source, "\tthrow std::runtime_error(\"vector of unions not yet implemented\");");
+		break;
+	case expression::TypeType::Table:
+		emitCalculateDynamicOffsetVectorOfTable(out, fmt::format("this->{}", f.name));
+	}
 }
 
-void emitCalculateDynamicOffsetString(Streams& out) {
-	EMIT(out.source, "namespace {{");
+void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, expression::Table const& table) {
 	EMIT(out.source,
-	     "void calcDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& currentOffset, "
-	     "std::string const& str) {{");
-	EMIT(out.source, "\tauto key = reinterpret_cast<uintptr_t>(str.data());");
-	EMIT(out.source, "\tif (offsets.count(key)) {{ return; }}");
-	EMIT(out.source, "\tif (currentOffset % 4 != 0) {{");
-	EMIT(out.source, "\t\tcurrentOffset += 4 - (currentOffset % 4);");
-	EMIT(out.source, "\t}}");
-	EMIT(out.source, "\toffsets.emplace(key, currentOffset);");
-	EMIT(out.source, "\tcurrentOffset += str.size() + 5; // 4 for size, 1 for 0-terminator");
-	EMIT(out.source, "}}");
+	     "void {}::_write(std::unordered_map<uintptr, unsigned> const& offsets, uint8_t* data) const {{",
+	     table.name);
+	// get pointer to beginning of table
+	EMIT(out.source, "\tauto tableOffset = offsets.at(reinterpret_cast<const uintptr_t>(this));");
+	EMIT(out.source, "\tuint8_t* current = data + tableOffset;");
+	// calculate offset to vtable
+	auto tableInfo = context.tableInfo.at(name);
+	auto const& vtable = tableInfo.vtable;
+	auto vtableOffset = tableInfo.vtableOffset;
+	EMIT(out.source, "\tmemcpy(current, tableOffset - {}, 4);", vtableOffset);
+	for (int i = 0; i < table.fields.size(); ++i) {
+		auto const& f = table.fields[i];
+		if (f.firstMetadataField(expression::MetadataType::deprecated).has_value()) {
+			continue;
+		}
+		auto fieldOffset = unsigned(vtable[i + 2]);
+		if (f.isArrayType) {
+			auto arrayOffset = fmt::format("offsets.at(&(this->{}))", f.name);
+			EMIT(out.source,
+			     "\tmemcpy(current + {0}, uint32_t({1} - (tableOffset + {0})), 4);",
+			     fieldOffset,
+			     arrayOffset);
+			continue;
+		}
+		auto fType = assertTrue(context.staticContext.resolve(f.type));
+		// write rest of fields
+	}
+	for (auto const& f : table.fields) {
+		// check if typeof(f) is a dynamic type, write the value of f is it is.
+		auto fType = assertTrue(context.staticContext.resolve(f.type));
+		switch (fType->second->typeType()) {
+		case expression::TypeType::Table:
+			EMIT(out.source, "\t{}._write(offsets, data);", fType->first.fullyQualifiedCppName(*fType->second));
+			break;
+		}
+	}
 	EMIT(out.source, "}}");
 }
 
@@ -688,7 +750,6 @@ void CodeGenerator::emit(Streams& out, expression::Struct const& st) const {
 		emit(out, f);
 	}
 	EMIT(out.header, "}};");
-	emitCalculateDynamicOffsetVectorOf(out, context->resolve(st.name)->first, st);
 	emit(out, OldSerializers{ st });
 	EMIT(out.header, "");
 }
@@ -871,8 +932,12 @@ void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table
 	EMIT(out.source, "\tstd::unordered_map<uintptr_t, unsigned> dynamicOffsets;");
 	EMIT(out.source, "\t_calculateDynamicOffsets(dynamicOffsets, dynamicOffset)");
 	EMIT(out.source, "\tuint8_t* buffer = new (arena) uint8_t[dynamicOffset];");
-	// TODO: serialize here
+	EMIT(out.source, "\t_write(dynamicOffsets, buffer);");
 	EMIT(out.source, "\treturn StringRef(buffer, sz);");
+	EMIT(out.source, "}}");
+	EMIT(out.source, "");
+
+	emitSerializePWrite(context, out, tableTypeName, table);
 
 	// the code to allocate the memory has to be called first, but we can already generate code to write the
 	// statically known data
@@ -939,6 +1004,103 @@ void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table
 	EMIT(out.source, "}}");
 }
 
+void emitCalculateDynamicOffset(DynamicContext& context,
+                                Streams& out,
+                                expression::Struct const& st,
+                                std::string const& qualifiedName) {
+	auto sz = context.staticContext.inlinedSizeOf(st);
+	auto alignment = context.staticContext.alignmentOf(st);
+	EMIT(out.source, "\tif (current % {} != 0) {{", alignment);
+	EMIT(out.source, "\t\tcurrent += {0} - (current % {0});", alignment);
+	EMIT(out.source, "\t}}");
+	EMIT(out.source, "\toffsets.emplace(reinterpret_cast<uintptr_t>(&{}), current);", qualifiedName);
+	EMIT(out.source, "\tcurrent += {};", sz);
+}
+
+void emitCalculateDynamicOffset(DynamicContext& context,
+                                Streams& out,
+                                expression::Union const& u,
+                                std::string const& qualifiedName) {
+	EMIT(out.source, "\tswitch ({}.index()) {{", qualifiedName);
+	for (int i = 0; i < u.types.size(); ++i) {
+		auto qName = fmt::format("std::get<{}>({})", i, qualifiedName);
+		auto uType = assertTrue(context.staticContext.resolve(u.types[i]));
+		EMIT(out.source, "\tcase {}:", i);
+		switch (uType->second->typeType()) {
+		case expression::TypeType::Table:
+			EMIT(out.source, "\t{}._calculateDynamicOffsets(offsets, current);", qName);
+			break;
+		case expression::TypeType::Struct:
+			emitCalculateDynamicOffset(context, out, dynamic_cast<expression::Struct const&>(*uType->second), qName);
+			break;
+		case expression::TypeType::Primitive: {
+			auto pType = dynamic_cast<expression::PrimitiveType const&>(*uType->second);
+			if (pType.typeClass != expression::PrimitiveTypeClass::StringType) {
+				throw Error("Union of primitives not supported");
+			}
+			emitCalculateDynamicOffsetString(out, qName);
+			break;
+		}
+		case expression::TypeType::Enum:
+			throw Error("Union of Enums not supported");
+		case expression::TypeType::Union:
+			throw Error("Union of Unions not supported");
+		}
+		EMIT(out.source, "\tbreak;");
+	}
+	EMIT(out.source, "\t}}");
+}
+
+void emitCalculateDynamicOffset(DynamicContext& context, Streams& out, expression::Table const& table) {
+	EMIT(out.source,
+	     "void {}::_calculateDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& current) const "
+	     "{{",
+	     table.name);
+	EMIT(out.source, "\tif (offsets.count(reinterpret_cast<const uintptr_t>(this)) != 0) {{ return; }}");
+	// we need to calculate the offsets of all dynamically sized members first and make sure they're accounted for
+	for (auto const& f : table.fields) {
+		if (f.firstMetadataField(expression::MetadataType::deprecated).has_value()) {
+			continue;
+		}
+		auto t = assertTrue(context.staticContext.resolve(f.type));
+		if (f.isArrayType) {
+			emitCalculateDynamicOffsetVector(context, out, f, t->first, *t->second);
+			continue;
+		}
+		switch (t->second->typeType()) {
+		case expression::TypeType::Enum:
+		case expression::TypeType::Struct:
+			break; // inline types
+		case expression::TypeType::Union:
+			emitCalculateDynamicOffset(context, out, dynamic_cast<expression::Union const&>(*t->second), f.name);
+			break;
+		case expression::TypeType::Table:
+			EMIT(out.source, "\tthis->{}._calculateDynamicOffsets(offsets, current);", f.name);
+			break;
+		case expression::TypeType::Primitive:
+			auto pType = dynamic_cast<expression::PrimitiveType const&>(*t->second);
+			if (pType.typeClass == expression::PrimitiveTypeClass::StringType) {
+				emitCalculateDynamicOffsetString(out, fmt::format("this->{}", f.name));
+			}
+		}
+	}
+	// alignment
+	EMIT(out.source, "\tif (current % 4 != 0) {{");
+	EMIT(out.source, "\t\tcurrent += 4 - (current % 4);");
+	EMIT(out.source, "\t}}");
+	if (context.staticContext.tableAlignment(table) == 8) {
+		// has to be 4-byte aligned but not 8-byte aligned
+		EMIT(out.source, "\tif (current % 8 == 0) {{");
+		EMIT(out.source, "\t\tcurrent += 4;");
+		EMIT(out.source, "\t}}");
+	}
+	// add "this"
+	EMIT(out.source, "\toffsets.emplace(reinterpret_cast<uintptr_t>(this), current);");
+	// add size of this
+	EMIT(out.source, "\tcurrent += {};", context.staticContext.tableSize(table));
+	EMIT(out.source, "}}");
+}
+
 } // namespace
 
 void CodeGenerator::emit(Streams& out, expression::Table const& table) const {
@@ -952,6 +1114,7 @@ void CodeGenerator::emit(Streams& out, expression::Table const& table) const {
 	     context->tableAlignment(table));
 	EMIT(out.header,
 	     "\tvoid _calculateDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& current) const;");
+	EMIT(out.header, "\tvoid _write(std::unordered_map<uintptr, unsigned> const& offsets, uint8_t* data) const;");
 	emitDeserializeTable(context, out, table);
 	DynamicContext dynamicContext(*context, table);
 	emitSerializeTable(dynamicContext, out, table);
@@ -961,7 +1124,7 @@ void CodeGenerator::emit(Streams& out, expression::Table const& table) const {
 	}
 
 	EMIT(out.header, "}};");
-	emitCalculateDynamicOffsetVectorOf(out, context->resolve(table.name)->first, table);
+	emitCalculateDynamicOffset(dynamicContext, out, table);
 	emit(out, OldSerializers{ table });
 }
 
@@ -976,12 +1139,6 @@ void CodeGenerator::emit(Streams& out, expression::ExpressionTree const& tree) c
 		defer([&out, &tree]() {
 			out.source << fmt::format("}} // namespace {}\n", fmt::join(tree.namespacePath.value(), "::"));
 		});
-	}
-	emitCalculateDynamicOffsetString(out);
-	for (auto const& p : expression::primitiveTypes) {
-		if (p.second.typeClass != expression::PrimitiveTypeClass::StringType) {
-			emitCalculateDynamicOffsetVectorOf(out, p.second);
-		}
 	}
 	// enums have no dependencies, so we will emit them first
 	for (auto const& [_, e] : tree.enums) {
@@ -1017,7 +1174,7 @@ void CodeGenerator::emit(std::string const& stem,
 	Defer defer;
 	defer([&headerStream, &guard]() { EMIT(headerStream, "\n#endif // #ifndef {}", guard); });
 
-	EMIT(sourceStream, "// THIS FILE WAS GENERATED BY FLOWFLATC, DO NOT EDIT!");
+	EMIT(sourceStream, "// THIS FILE WAS GENERATED BY FLOWSERIALIZER, DO NOT EDIT!");
 	EMIT(sourceStream, "#include \"{}\"", header.filename().c_str());
 	EMIT(sourceStream, "#include <utility>");
 	EMIT(sourceStream, "using namespace flowserializer;");
