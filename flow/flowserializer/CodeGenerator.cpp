@@ -865,14 +865,14 @@ void emitCalculateDynamicOffsets(DynamicContext& context, Streams& out, expressi
 void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table const& table) {
 	out.header << fmt::format("\tStringRef write(Arena& w) const;\n");
 
-	auto tableTypeName = assertTrue(context->resolve(table.name))->first;
+	auto tableTypeName = assertTrue(context.staticContext.resolve(table.name))->first;
 	EMIT(out.source, "StringRef {}::{}::write(Arena& w) const {{", fmt::join(tableTypeName.path, "::"), table.name);
 
 	// the code to allocate the memory has to be called first, but we can already generate code to write the
 	// statically known data
 	// TODO: Only generate serialization for root_type
 	std::stringstream writer;
-	auto serMap = context->serializationInformation(table.name);
+	auto serMap = context.staticContext.serializationInformation(table.name);
 
 	// 0. write all vtables
 	int curr = 8;
@@ -918,7 +918,7 @@ void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table
 	EMIT(out.source, "\tint bufferSize = 0;");
 	EMIT(writer, "\tint dynamicOffset = 0;");
 	for (int i = 0; i < table.fields.size(); ++i) {
-		emitSerializeField(context, out, writer, i, table.fields[i], vtable.value(), curr, dataSize, "");
+		emitSerializeField(&context.staticContext, out, writer, i, table.fields[i], vtable.value(), curr, dataSize, "");
 	}
 
 	// 2. Write header
