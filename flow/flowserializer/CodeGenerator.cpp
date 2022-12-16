@@ -458,7 +458,7 @@ void emitCalculateDynamicOffsetVectorOf(Streams& out, TypeName const& name, expr
 	auto fullyQualifiedName = name.fullyQualifiedCppName(table);
 	EMIT(out.source, "namespace {{");
 	EMIT(out.source,
-	     "void calcDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& currentOffset, "
+	     "unsigned calcDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& currentOffset, "
 	     "std::vector<{}> const& vec) {{", fullyQualifiedName);
 	EMIT(out.source, "\tauto key = reinterpret_cast<uintptr_t>(vec.data());");
 	EMIT(out.source, "\tif (offsets.count(key)) {{ return; }}");
@@ -867,6 +867,12 @@ void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table
 
 	auto tableTypeName = assertTrue(context.staticContext.resolve(table.name))->first;
 	EMIT(out.source, "StringRef {}::{}::write(Arena& w) const {{", fmt::join(tableTypeName.path, "::"), table.name);
+	EMIT(out.source, "\tunsigned dynamicOffset = {}\t", context.staticSize);
+	EMIT(out.source, "\tstd::unordered_map<uintptr_t, unsigned> dynamicOffsets;");
+	EMIT(out.source, "\t_calculateDynamicOffsets(dynamicOffsets, dynamicOffset)");
+	EMIT(out.source, "\tuint8_t* buffer = new (arena) uint8_t[dynamicOffset];");
+	// TODO: serialize here
+	EMIT(out.source, "\treturn StringRef(buffer, sz);");
 
 	// the code to allocate the memory has to be called first, but we can already generate code to write the
 	// statically known data
@@ -937,10 +943,15 @@ void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table
 
 void CodeGenerator::emit(Streams& out, expression::Table const& table) const {
 	EMIT(out.header, "struct {} {{", table.name);
-	EMIT(out.header, "\t[[nodiscard]] flowserializer::Type flowSerializerType() const {{ return flowserializer::Type::Table; }};\n");
-	EMIT(out.header, "\t [[nodiscard]] static unsigned _fbSize() const {{ return {}; }}", context->tableSize(table));
-	EMIT(out.header, "\t [[nodiscard]] static unsigned _fbAlignment() const {{ return {}; }}", context->tableAlignment(table));
-	EMIT(out.header, "\t void _calculateDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& current) const;");
+	EMIT(
+	    out.header,
+	    "\t[[nodiscard]] flowserializer::Type flowSerializerType() const {{ return flowserializer::Type::Table; }};\n");
+	EMIT(out.header, "\t[[nodiscard]] static unsigned _fbSize() const {{ return {}; }}", context->tableSize(table));
+	EMIT(out.header,
+	     "\t[[nodiscard]] static unsigned _fbAlignment() const {{ return {}; }}",
+	     context->tableAlignment(table));
+	EMIT(out.header,
+	     "\tvoid _calculateDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& current) const;");
 	emitDeserializeTable(context, out, table);
 	DynamicContext dynamicContext(*context, table);
 	emitSerializeTable(dynamicContext, out, table);
