@@ -467,6 +467,9 @@ void emitCalculateDynamicOffsetVectorOf(Streams& out, TypeName const& name, expr
 	EMIT(out.source, "\t}}");
 	EMIT(out.source, "\toffsets.emplace(key, currentOffset);");
 	EMIT(out.source, "\tcurrentOffset += 4 * vec.size() + 4; // 4 for size");
+	EMIT(out.source, "\tfor (auto const& t : vec) {{");
+	EMIT(out.source, "\t\tt._calculateDynamicOffsets(offsets, currentOffset);");
+	EMIT(out.source, "\t}}");
 	EMIT(out.source, "}}");
 	EMIT(out.source, "}}");
 }
@@ -933,11 +936,11 @@ void emitSerializeTable(DynamicContext& context, Streams& out, expression::Table
 } // namespace
 
 void CodeGenerator::emit(Streams& out, expression::Table const& table) const {
-	out.header << fmt::format("struct {} {{\n", table.name);
-	out.header << fmt::format("\t[[nodiscard]] flowserializer::Type flowSerializerType() const {{ return "
-	                          "flowserializer::Type::Table; }};\n\n");
-	out.header << fmt::format("\t [[nodiscard]] static unsigned _fbSize() const {{ return {}; }}", context->tableSize(table));
-	out.header << fmt::format("\t [[nodiscard]] static unsigned _fbAlignment() const {{ return {}; }}", context->tableAlignment(table));
+	EMIT(out.header, "struct {} {{", table.name);
+	EMIT(out.header, "\t[[nodiscard]] flowserializer::Type flowSerializerType() const {{ return flowserializer::Type::Table; }};\n");
+	EMIT(out.header, "\t [[nodiscard]] static unsigned _fbSize() const {{ return {}; }}", context->tableSize(table));
+	EMIT(out.header, "\t [[nodiscard]] static unsigned _fbAlignment() const {{ return {}; }}", context->tableAlignment(table));
+	EMIT(out.header, "\t void _calculateDynamicOffsets(std::unordered_map<uintptr_t, unsigned>& offsets, unsigned& current) const;");
 	emitDeserializeTable(context, out, table);
 	DynamicContext dynamicContext(*context, table);
 	emitSerializeTable(dynamicContext, out, table);
