@@ -37,6 +37,8 @@ public:
 	void describeTable(std::string const& name) const;
 	[[nodiscard]] unsigned inlinedSizeOf(const expression::Type& type);
 	[[nodiscard]] unsigned alignmentOf(const expression::Type& type);
+	[[nodiscard]] unsigned tableSize(const expression::Table& table);
+	[[nodiscard]] unsigned tableAlignment(const expression::Table& t);
 };
 
 } // namespace flowserializer

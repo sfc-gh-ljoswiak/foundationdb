@@ -73,6 +73,14 @@ struct Field {
 	bool isArrayType = false;
 	std::optional<std::string> defaultValue;
 	std::vector<MetadataEntry> metadata;
+	[[nodiscard]] std::optional<MetadataEntry> firstMetadataField(MetadataType t) const {
+		for (auto const& m : metadata) {
+			if (m.type == t) {
+				return m;
+			}
+		}
+		return {};
+	}
 };
 
 struct StructOrTable : Type {
@@ -133,15 +141,25 @@ struct TypeName {
 
 	[[nodiscard]] inline bool operator==(TypeName const& rhs) const { return name == rhs.name && path == rhs.path; }
 	[[nodiscard]] bool operator!=(TypeName const& rhs) const { return !(*this == rhs); }
+	[[nodiscard]] bool operator<(TypeName const& rhs) const {
+		if (path == rhs.path) {
+			return name < rhs.name;
+		}
+		return path < rhs.path;
+	}
 
-	std::string fullyQualifiedCppName(flowserializer::expression::Type const& t) const {
+	std::string fullyQualifiedName(flowserializer::expression::Type const& t, const std::string separator = ".") const {
 		if (t.typeType() == flowserializer::expression::TypeType::Primitive) {
 			return std::string(dynamic_cast<flowserializer::expression::PrimitiveType const&>(t).nativeName);
 		}
 		if (path.empty()) {
 			return name;
 		}
-		return fmt::format("{}::{}", fmt::join(path, "::"), name);
+		return fmt::format("{0}{1}{2}", fmt::join(path, separator), separator, name);
+	}
+
+	std::string fullyQualifiedCppName(flowserializer::expression::Type const& t) const {
+		return fullyQualifiedName(t, "::");
 	}
 };
 

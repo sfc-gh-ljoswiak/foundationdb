@@ -252,7 +252,13 @@ unsigned StaticContext::inlinedSizeOf(const expression::Type& type) {
 		// the size of a struct is the sum of the size of all its members
 		unsigned res = 0u;
 		for (auto const& f : s.fields) {
-			res += inlinedSizeOf(*assertTrue(resolve(f.type))->second);
+			if (f.firstMetadataField(expression::MetadataType::deprecated).has_value()) {
+				// doesn't contribute to inlined size
+			} else if (f.isArrayType) {
+				res += 4;
+			} else {
+				res += inlinedSizeOf(*assertTrue(resolve(f.type))->second);
+			}
 		}
 		return res;
 	}
@@ -265,12 +271,7 @@ unsigned StaticContext::alignmentOf(const expression::Type& type) {
 	switch (type.typeType()) {
 	case expression::TypeType::Primitive: {
 		auto p = dynamic_cast<const expression::PrimitiveType&>(type);
-
-		if (p.typeClass == expression::PrimitiveTypeClass::StringType) {
-			return 4u;
-		} else {
-			return p.size();
-		}
+		return p.size();
 	}
 	case expression::TypeType::Enum: {
 		auto const& e = dynamic_cast<expression::Enum const&>(type);
@@ -292,6 +293,39 @@ unsigned StaticContext::alignmentOf(const expression::Type& type) {
 	case expression::TypeType::Table:
 		return 4u;
 	}
+}
+
+unsigned StaticContext::tableSize(const expression::Table& table) {
+	unsigned result = 4; // vtable offset
+	for (auto const& f : table.fields) {
+		if (f.firstMetadataField(expression::MetadataType::deprecated).has_value()) {
+			continue;
+		}
+		if (f.isArrayType) {
+			// vectors are reference types
+			result += 4;
+			continue;
+		}
+		auto type = assertTrue(resolve(f.type));
+		result += inlinedSizeOf(*type->second);
+		if (type->second->typeType() == expression::TypeType::Union) {
+			// a union is an inlined type plus a 1-byte type in the table
+			result += 1;
+		}
+	}
+	return result;
+}
+
+unsigned StaticContext::tableAlignment(const expression::Table& table) {
+	unsigned result = 4; // vtable offset
+	for (auto const& f : table.fields) {
+		if (f.isArrayType || f.firstMetadataField(expression::MetadataType::deprecated).has_value()) {
+			continue;
+		}
+		auto type = assertTrue(resolve(f.type));
+		result = std::max(alignmentOf(*type->second), result);
+	}
+	return result;
 }
 
 std::string multiplyChar(int lhs, char rhs) {
