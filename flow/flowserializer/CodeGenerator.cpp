@@ -623,10 +623,6 @@ void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, e
 		// check if typeof(f) is a dynamic type, write the value of f is it is.
 		auto fType = assertTrue(context.staticContext.resolve(f.type));
 		switch (fType->second->typeType()) {
-		case expression::TypeType::Primitive:
-			break;
-		case expression::TypeType::Enum:
-			break;
 		case expression::TypeType::Union:
 			break;
 		case expression::TypeType::Struct:
@@ -634,6 +630,8 @@ void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, e
 		case expression::TypeType::Table:
 			EMIT(out.source, "\t{}._write(offsets, data);", fType->first.fullyQualifiedCppName(*fType->second));
 			break;
+		default:
+			throw Error(fmt::format("Invalid type {} in dynamic data", expression::toString(fType->second->typeType()));
 		}
 	}
 	EMIT(out.source, "}}");
