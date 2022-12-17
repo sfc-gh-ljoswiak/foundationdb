@@ -544,6 +544,26 @@ void emitCalculateDynamicOffsetVector(DynamicContext& context,
 	}
 }
 
+void emitSerializeDynamicOffset(Streams& out, std::string field, unsigned fieldOffset) {
+	auto dynamicOffset = fmt::format("offsets.at(std::addressof(this->{}))", field);
+	EMIT(out.source, "\tmemcpy(current + {0}, uint32_t({1} - (tableOffset + {0})), 4);", fieldOffset, dynamicOffset);
+}
+
+void emitSerializeStruct(DynamicContext& context, Streams& out, expression::Struct const& s) {
+	for (const auto& f : s.fields) {
+		auto fType = assertTrue(context.staticContext.resolve(f.type));
+		auto alignment = context.staticContext.alignmentOf(*fType->second);
+		// TODO: Don't add to current, use a different offset
+		if (alignment > 1) {
+			EMIT(out.source, "\t// align to {} bytes", alignment);
+			EMIT(out.source, "\tif (current % {} != 0) {{", alignment);
+			EMIT(out.source, "\t\tcurrent += {0} - (current % {0});", alignment);
+			EMIT(out.source, "\t}}");
+		}
+		// EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", fieldOffset, f.name, t.size());
+	}
+}
+
 void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, expression::Table const& table) {
 	EMIT(out.source,
 	     "void {}::_write(std::unordered_map<uintptr, unsigned> const& offsets, uint8_t* data) const {{",
@@ -563,20 +583,48 @@ void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, e
 		}
 		auto fieldOffset = unsigned(vtable[i + 2]);
 		if (f.isArrayType) {
-			auto arrayOffset = fmt::format("offsets.at(&(this->{}))", f.name);
-			EMIT(out.source,
-			     "\tmemcpy(current + {0}, uint32_t({1} - (tableOffset + {0})), 4);",
-			     fieldOffset,
-			     arrayOffset);
+			emitSerializeDynamicOffset(out, f.name, fieldOffset);
 			continue;
 		}
-		auto fType = assertTrue(context.staticContext.resolve(f.type));
+		auto const& type = *assertTrue(context.staticContext.resolve(f.type))->second;
+		auto alignment = context.staticContext.alignmentOf(type);
 		// write rest of fields
+		switch (type.typeType()) {
+		case expression::TypeType::Primitive:
+			auto t = dynamic_cast<const expression::PrimitiveType&>(type);
+			if (t.typeClass == expression::PrimitiveTypeClass::StringType) {
+				emitSerializeDynamicOffset(out, f.name, fieldOffset);
+			} else {
+				EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", fieldOffset, f.name, t.size());
+			}
+			break;
+		case expression::TypeType::Enum:
+			EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", fieldOffset, f.name, t.size());
+			break;
+		case expression::TypeType::Union:
+			// TODO
+			break;
+		case expression::TypeType::Struct:
+			auto st = dynamic_cast<const expression::Struct&>(type);
+			emitSerializeStruct(context, out, st);
+			break;
+		case expression::TypeType::Table:
+			emitSerializeDynamicOffset(out, f.name, fieldOffset);
+			break;
+		}
 	}
 	for (auto const& f : table.fields) {
 		// check if typeof(f) is a dynamic type, write the value of f is it is.
 		auto fType = assertTrue(context.staticContext.resolve(f.type));
 		switch (fType->second->typeType()) {
+		case expression::TypeType::Primitive:
+			break;
+		case expression::TypeType::Enum:
+			break;
+		case expression::TypeType::Union:
+			break;
+		case expression::TypeType::Struct:
+			break;
 		case expression::TypeType::Table:
 			EMIT(out.source, "\t{}._write(offsets, data);", fType->first.fullyQualifiedCppName(*fType->second));
 			break;
@@ -796,15 +844,15 @@ void CodeGenerator::emit(struct Streams& out, const OldSerializers& s) const {
 
 namespace {
 
-void emitSerializeField(StaticContext* context,
-                        Streams& out,
-                        std::ostream& writer,
-                        size_t fieldIndex,
-                        expression::Field const& field,
-                        std::vector<voffset_t> vtable,
-                        voffset_t tableOffset,
-                        int& dataSize,
-                        std::string fieldPrefix) {
+void emitSerializeFieldOld(StaticContext* context,
+                           Streams& out,
+                           std::ostream& writer,
+                           size_t fieldIndex,
+                           expression::Field const& field,
+                           std::vector<voffset_t> vtable,
+                           voffset_t tableOffset,
+                           int& dataSize,
+                           std::string fieldPrefix) {
 	if (vtable.empty()) {
 		return;
 	}
