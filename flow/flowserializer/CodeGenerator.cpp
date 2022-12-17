@@ -586,7 +586,6 @@ void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, e
 			continue;
 		}
 		auto const& type = *assertTrue(context.staticContext.resolve(f.type))->second;
-		auto alignment = context.staticContext.alignmentOf(type);
 		// write rest of fields
 		switch (type.typeType()) {
 		case expression::TypeType::Primitive: {
