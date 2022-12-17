@@ -551,16 +551,15 @@ void emitSerializeDynamicOffset(Streams& out, std::string field, unsigned fieldO
 
 void emitSerializeStruct(DynamicContext& context, Streams& out, expression::Struct const& s) {
 	for (const auto& f : s.fields) {
+		unsigned offset = 0;
 		auto fType = assertTrue(context.staticContext.resolve(f.type));
+		unsigned size = context.staticContext.inlinedSizeOf(*fType->second);
 		auto alignment = context.staticContext.alignmentOf(*fType->second);
-		// TODO: Don't add to current, use a different offset
-		if (alignment > 1) {
-			EMIT(out.source, "\t// align to {} bytes", alignment);
-			EMIT(out.source, "\tif (current % {} != 0) {{", alignment);
-			EMIT(out.source, "\t\tcurrent += {0} - (current % {0});", alignment);
-			EMIT(out.source, "\t}}");
+		if (alignment > 1 && offset % alignment != 0) {
+			offset += alignment - (offset % alignment);
 		}
-		// EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", fieldOffset, f.name, t.size());
+		EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", offset, f.name, size);
+		offset += size;
 	}
 }
 
@@ -590,7 +589,7 @@ void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, e
 		auto alignment = context.staticContext.alignmentOf(type);
 		// write rest of fields
 		switch (type.typeType()) {
-		case expression::TypeType::Primitive:
+		case expression::TypeType::Primitive: {
 			auto t = dynamic_cast<const expression::PrimitiveType&>(type);
 			if (t.typeClass == expression::PrimitiveTypeClass::StringType) {
 				emitSerializeDynamicOffset(out, f.name, fieldOffset);
@@ -598,19 +597,27 @@ void emitSerializePWrite(DynamicContext& context, Streams& out, TypeName name, e
 				EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", fieldOffset, f.name, t.size());
 			}
 			break;
-		case expression::TypeType::Enum:
+		}
+		case expression::TypeType::Enum: {
+			auto eType = dynamic_cast<const expression::Enum&>(type);
+			assertTrue(eType.typeType() == expression::TypeType::Primitive);
+			auto t = dynamic_cast<const expression::PrimitiveType&>(eType);
 			EMIT(out.source, "\tmemcpy(current + {0}, std::addressof({1}), {2}", fieldOffset, f.name, t.size());
 			break;
-		case expression::TypeType::Union:
-			// TODO
+		}
+		case expression::TypeType::Union: {
+			throw Error("TODO Implement union serialization");
 			break;
-		case expression::TypeType::Struct:
+		}
+		case expression::TypeType::Struct: {
 			auto st = dynamic_cast<const expression::Struct&>(type);
 			emitSerializeStruct(context, out, st);
 			break;
-		case expression::TypeType::Table:
+		}
+		case expression::TypeType::Table: {
 			emitSerializeDynamicOffset(out, f.name, fieldOffset);
 			break;
+		}
 		}
 	}
 	for (auto const& f : table.fields) {
